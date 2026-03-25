@@ -1,0 +1,16 @@
+name: campus_action
+channels:
+  - defaults
+  - pytorch
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - opencv-python
+    - streamlit
+    - numpy
+    - pandas
+    - tqdm
+    - matplotlib
+# 如果需要 PyTorch（有 GPU 或需要做模型推理），Day2 可按需安装：
+# conda install pytorch torchvision cpuonly -c pytorch
