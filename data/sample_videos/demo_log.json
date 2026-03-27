@@ -1,0 +1,24 @@
+[
+  {
+    "time": 0.033,
+    "frame": 0,
+    "persons": [
+      {"person_id": 1, "bbox": [30, 50, 120, 220], "label": "normal", "conf": 0.95}
+    ]
+  },
+  {
+    "time": 0.066,
+    "frame": 1,
+    "persons": [
+      {"person_id": 1, "bbox": [35, 52, 122, 223], "label": "normal", "conf": 0.96},
+      {"person_id": 2, "bbox": [200, 80, 260, 200], "label": "phone", "conf": 0.88}
+    ]
+  },
+  {
+    "time": 0.100,
+    "frame": 2,
+    "persons": [
+      {"person_id": 1, "bbox": [40, 55, 125, 225], "label": "loiter", "conf": 0.72}
+    ]
+  }
+]
