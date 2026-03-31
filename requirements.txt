@@ -1,9 +1,8 @@
-# 校园行为识别项目 最小依赖集（兼容 Python 3.10+，CI 可直接安装）
 streamlit>=1.38.0
-opencv-python>=4.8.0
-numpy>=1.26.4
-pandas>=2.2.1
-matplotlib>=3.8.3
-Pillow>=10.2.0
-tqdm>=4.66.2
-scipy>=1.17.1
+opencv-python>=4.10.0
+numpy>=2.0.0
+pandas>=2.2.0
+matplotlib>=3.9.0
+Pillow>=10.3.0
+tqdm>=4.66.0
+scipy>=1.14.0
