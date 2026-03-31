@@ -38,7 +38,7 @@ def inference_real(video_path, output_path="data/sample_videos/demo_log.json"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
-    print(f"✅ 已生成占位结果：{output_path}")
+   print(f"Generated placeholder result: {output_path}")
     print("提示：这是占位数据，后续请替换为真实模型推理逻辑")
 
 if __name__ == "__main__":
