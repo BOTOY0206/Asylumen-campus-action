@@ -4,7 +4,11 @@ import json
 import cv2
 import tempfile
 import numpy as np
-from examples.inference_real import inference_real, get_action_label  # 导入真实识别函数
+import sys
+
+# 【关键修复】添加项目根目录到Python搜索路径，解决模块导入问题
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from examples.inference_real import inference_real, get_action_label
 
 # 页面配置
 st.set_page_config(
