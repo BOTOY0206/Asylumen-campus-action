@@ -91,10 +91,9 @@ if uploaded_file and recognize_btn:
         """
         st.success(video_info)
         
-        # 4. 显示核心识别结果
-        if result:
-            # 提取关键结果展示
-            key_result = result[0] if result else {}
+        # 4. 显示核心识别结果（修复空值问题）
+        if result and len(result) > 0:
+            key_result = result[0]
             result_html = f"""
             <div style="background-color:#f0f8ff; padding:15px; border-radius:8px;">
                 <h4>核心识别结果（第一帧）</h4>
@@ -119,7 +118,7 @@ if uploaded_file and recognize_btn:
             
             st.success(f"识别完成！结果已保存到：{output_path}")
             
-            # 6. 视频预览（播放前10帧）
+            # 6. 视频预览（修复caption数量不匹配问题）
             st.info("视频预览（仅展示前10帧）：")
             frames = []
             for i in range(min(10, frame_count)):
@@ -129,15 +128,17 @@ if uploaded_file and recognize_btn:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     frames.append(frame)
             
-            # 播放预览
+            # 播放预览（修复报错：去掉caption，避免数量不匹配）
             if frames:
                 video_placeholder.image(
                     frames,
-                    caption="视频帧预览（真实识别结果）",
                     width=600,
                     channels="RGB"
                 )
             
+            cap.release()
+        else:
+            st.error("识别结果为空，请检查视频文件是否正常")
             cap.release()
         
         # 删除临时文件
