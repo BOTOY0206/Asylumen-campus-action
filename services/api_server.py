@@ -9,7 +9,6 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # 导入你的真实模型推理代码
 from examples.inference_real import inference_real, get_action_label
-result = inference_real(temp_file_path)
 
 # 初始化FastAPI应用
 app = FastAPI(
