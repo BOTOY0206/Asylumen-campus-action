@@ -24,11 +24,18 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url=None
-)  #  这个右括号不能漏！
+)  # 这个右括号不能漏！
+
 RESULT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "results"))
 os.makedirs(RESULT_DIR, exist_ok=True)
 
-@app.post("/api/recognize")
+# 系统接口（带标签，页面分组用）
+@app.get("/", tags=["系统"])
+def root():
+    return {"status": "running", "message": "校园行为识别API服务正常运行"}
+
+# 核心识别接口（带标签，页面分组用）
+@app.post("/api/recognize", tags=["识别"])
 async def recognize_video(file: UploadFile = File(...)):
     try:
         suffix = os.path.splitext(file.filename)[1] if file.filename else ".mp4"
