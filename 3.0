@@ -1,0 +1,6 @@
+Looking in indexes: https://mirrors.aliyun.com/pypi/simple/
+Collecting networkx
+  Downloading https://mirrors.aliyun.com/pypi/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl (2.1 MB)
+     ------------------------------------ 2.1/2.1 MB 10.1 MB/s  0:00:00
+Installing collected packages: networkx
+Successfully installed networkx-3.6.1
