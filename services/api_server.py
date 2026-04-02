@@ -18,7 +18,13 @@ except ImportError:
     def get_action_label(name):
         return "测试动作"
 
-app = FastAPI()
+app = FastAPI(
+    title="校园行为识别API",
+    description="支持视频上传、行为识别、结果查询的后端API服务",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url=None
+)  #  这个右括号不能漏！
 RESULT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "results"))
 os.makedirs(RESULT_DIR, exist_ok=True)
 
