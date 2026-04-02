@@ -4,10 +4,13 @@ import sys
 import json
 from typing import Dict, List
 
-# 把项目根目录加入路径，确保能导入你的 inference_real
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# ============== 关键：强制把 examples 目录加入 Python 路径 ==============
+# 不管从哪里启动，都能找到 examples 里的 inference_real
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+EXAMPLES_DIR = os.path.join(ROOT_DIR, "examples")
+sys.path.insert(0, EXAMPLES_DIR)  # 强制加入路径，彻底解决导入问题
 
-# 直接导入你已有的真实推理函数（完全匹配）
+# ============== 现在绝对能导入成功！！！ ==============
 from inference_real import inference_real
 
 # ====================== 核心：统一 JSON 输出格式 ======================
@@ -106,7 +109,7 @@ def inference_wrapper(
         # 6. 更新状态
         final_result.update(standard_data)
         final_result["status"] = "success"
-        print(f"推理完成！标准JSON已保存：{output_path}")
+        print(f" 推理完成！标准JSON已保存：{output_path}")
 
         return final_result
 
