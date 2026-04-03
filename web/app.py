@@ -142,7 +142,15 @@ if uploaded_file and recognize_btn:
             cap.release()
         
         # 删除临时文件
-        os.unlink(video_path)
+        # 方案：加异常捕获，删不掉就跳过，绝对不报错！
+try:
+    os.unlink(video_path)
+except PermissionError:
+    # 临时文件被占用，跳过删除，不影响任何功能
+    print(f"临时文件 {video_path} 被占用，已跳过删除，不影响使用")
+except Exception as e:
+    # 其他异常也捕获，彻底兜底
+    print(f"删除临时文件时出现异常：{str(e)}，不影响使用")
 
 # 底部说明
 st.divider()
