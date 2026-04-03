@@ -109,7 +109,7 @@ def inference_wrapper(
         # 6. 更新状态
         final_result.update(standard_data)
         final_result["status"] = "success"
-        print(f" 推理完成！标准JSON已保存：{output_path}")
+        print(f"推理完成！标准JSON已保存：{output_path}")
 
         return final_result
 
@@ -117,7 +117,7 @@ def inference_wrapper(
         # 异常处理
         final_result["status"] = "failed"
         final_result["error_message"] = str(e)
-        print(f" 推理失败：{str(e)}")
+        print(f"推理失败：{str(e)}")
         return final_result
 
 # ====================== 命令行直接运行 ======================
