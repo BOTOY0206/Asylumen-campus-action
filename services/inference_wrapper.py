@@ -130,4 +130,3 @@ if __name__ == "__main__":
     video_path = sys.argv[1]
     result = inference_wrapper(video_path)
     print("\n=== 最终返回结果 ===")
-    print(json.dumps(result, indent=2, ensure_ascii=False))
