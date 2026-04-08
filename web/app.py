@@ -55,7 +55,7 @@ p, li { color: #1e293b !important; font-size: 1rem; }
 # -------------------------- 标题 --------------------------
 st.markdown('<p class="main-title">校园行为智能识别系统</p>', unsafe_allow_html=True)
 
-# -------------------------- 强制真实推理 --------------------------
+# -------------------------- 推理函数 --------------------------
 from examples.inference_real import inference_real, get_action_label
 
 # -------------------------- 分栏 --------------------------
@@ -103,144 +103,98 @@ with col2:
     result_placeholder = st.empty()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# -------------------------- 识别逻辑（完全重写，100%正确） --------------------------
+# -------------------------- 识别逻辑（完全按你的需求重写） --------------------------
 if st.button("开始行为识别", type="primary", disabled=not video_path):
     with st.spinner("正在分析..."):
         try:
+            # 1. 调用真实推理模型
             results = inference_real(video_path)
             if not results:
-                st.error("推理结果为空！")
+                st.error("推理结果为空，请检查模型！")
                 st.stop()
 
-            all_labels = []          # 所有行为标签
-            time_behavior_count = {} # 每一秒的行为次数（时间序列）
-            abnormal = 0
+            # 2. 统计所有行为，区分正常/异常
+            all_labels = []
+            time_behavior = {}  # 每一秒的行为次数
+            normal_count = 0
+            abnormal_count = 0
             total_persons = 0
 
-            # ====================== 正确统计逻辑 ======================
+            # 定义异常行为类别（你可以根据实际情况修改）
+            abnormal_labels = {
+                "hit_wall", "kick", "smoking", "slap_face", "slap_table",
+                "phone", "laying", "pointing", "squating", "touch"
+            }
+
             for frame in results:
                 t = frame.get("time", 0.0)
                 persons = frame.get("persons", [])
                 total_persons += len(persons)
+                second = int(t // 1)  # 按秒统计
 
                 for p in persons:
                     label = p.get("label", "normal")
-                    conf = p.get("conf", 0.0)
-
                     all_labels.append(label)
-                    if label != "normal":
-                        abnormal += 1
 
-                    # 按秒统计行为次数（每一秒只算一次）
-                    second = int(t // 1)
-                    if second not in time_behavior_count:
-                        time_behavior_count[second] = 0
-                    time_behavior_count[second] += 1
+                    # 统计正常/异常
+                    if label == "normal":
+                        normal_count += 1
+                    else:
+                        abnormal_count += 1
 
-            # ====================== 左侧数据概览 ======================
+                    # 统计每一秒的行为次数
+                    if second not in time_behavior:
+                        time_behavior[second] = 0
+                    time_behavior[second] += 1
+
+            # 3. 左侧数据概览（真实数据填充）
             if total_persons > 0:
-                video_duration = round(results[-1]["time"], 2) if results else 0
-                abnormal_rate = round(abnormal / total_persons * 100, 1)
+                video_duration = round(results[-1]["time"], 2) if len(results) > 0 else 0
+                abnormal_rate = round(abnormal_count / total_persons * 100, 1)
                 stat_placeholder.markdown(f"""
                 <div class="stat-item">异常占比：{abnormal_rate}%</div>
                 <div class="stat-item">视频时长：{video_duration} 秒</div>
                 <div class="stat-item">总帧数：{len(results)}</div>
-                <div class="stat-item">异常次数：{abnormal}</div>
+                <div class="stat-item">异常次数：{abnormal_count}</div>
                 <div class="stat-item">检测人数：{total_persons}</div>
                 """, unsafe_allow_html=True)
 
-            # ====================== 图表逻辑（完全重写） ======================
+            # 4. 柱状图（正常 vs 异常 直观对比）
             with chart_container:
-                # 1. 柱状图（统计每种行为的出现次数）
-                if all_labels:
-                    count = Counter(all_labels)
-                    label_cn = {
-                        "normal": "正常",
-                        "hit_wall": "撞墙",
-                        "hit_wall_corner": "撞墙(角落)",
-                        "hit_wall_entrance": "撞墙(门口)",
-                        "hit_wall_forward": "撞墙(正面)",
-                        "kick_backward": "踢打(向后)",
-                        "kick_corner": "踢打(角落)",
-                        "kick_entrance": "踢打(门口)",
-                        "kick_forward": "踢打(向前)",
-                        "laying_backward": "躺卧(向后)",
-                        "laying_corner": "躺卧(角落)",
-                        "laying_entrance": "躺卧(门口)",
-                        "laying_forward": "躺卧(向前)",
-                        "phone_backward": "玩手机(向后)",
-                        "phone_corner": "玩手机(角落)",
-                        "phone_entrance": "玩手机(门口)",
-                        "phone_forward": "玩手机(向前)",
-                        "pointing_backward": "指认(向后)",
-                        "pointing_corner": "指认(角落)",
-                        "pointing_entrance": "指认(门口)",
-                        "pointing_forward": "指认(向前)",
-                        "slap_face_backward": "扇脸(向后)",
-                        "slap_face_corner": "扇脸(角落)",
-                        "slap_face_entrance": "扇脸(门口)",
-                        "slap_face_forward": "扇脸(向前)",
-                        "slap_table_backward": "拍桌(向后)",
-                        "slap_table_corner": "拍桌(角落)",
-                        "slap_table_entrance": "拍桌(门口)",
-                        "slap_table_forward": "拍桌(向前)",
-                        "smoking_backward": "抽烟(向后)",
-                        "smoking_corner": "抽烟(角落)",
-                        "smoking_entrance": "抽烟(门口)",
-                        "smoking_forward": "抽烟(向前)",
-                        "squating_backward": "蹲坐(向后)",
-                        "squating_corner": "蹲坐(角落)",
-                        "squating_entrance": "蹲坐(门口)",
-                        "squating_forward": "蹲坐(向前)",
-                        "stand_backward": "站立(向后)",
-                        "stand_corner": "站立(角落)",
-                        "stand_entrance": "站立(门口)",
-                        "stand_forward": "站立(向前)",
-                        "touch_backward": "触摸(向后)",
-                        "touch_corner": "触摸(角落)",
-                        "touch_entrance": "触摸(门口)",
-                        "touch_forward": "触摸(向前)",
-                        "whole_process_backward": "完整流程(向后)",
-                        "whole_process_corner": "完整流程(角落)",
-                        "whole_process_entrance": "完整流程(门口)",
-                        "whole_process_forward": "完整流程(向前)"
-                    }
+                # 统计正常/异常总次数
+                bar_data = [
+                    {"行为类别": "正常行为", "次数": normal_count},
+                    {"行为类别": "异常行为", "次数": abnormal_count}
+                ]
+                bar_df = pd.DataFrame(bar_data)
 
-                    bar_data = [{"行为": label_cn.get(k, k), "次数": v} for k, v in count.items()]
-                    bar_df = pd.DataFrame(bar_data)
+                # 柱状图：正常蓝色，异常红色，直观对比
+                bar = alt.Chart(bar_df).mark_bar().encode(
+                    x=alt.X("行为类别:O", title="行为类别", axis=alt.Axis(labelAngle=0)),
+                    y=alt.Y("次数:Q", title="出现次数"),
+                    color=alt.Color("行为类别:O", scale=alt.Scale(
+                        domain=["正常行为", "异常行为"],
+                        range=["#4f8cff", "#ef4444"]
+                    ))
+                ).properties(height=400, width=450, title="正常行为 vs 异常行为 次数对比")
 
-                    bar = alt.Chart(bar_df).mark_bar(color="#4f8cff").encode(
-                        x=alt.X("行为:O", title="行为类别", sort="-y", axis=alt.Axis(labelAngle=-45)),
-                        y=alt.Y("次数:Q", title="出现次数")
-                    ).properties(height=400, width=450)
+                # 5. 折线图（每一秒的行为总次数，直观展示时间分布）
+                trend_df = pd.DataFrame(list(time_behavior.items()), columns=["时间(秒)", "次数"])
+                line = alt.Chart(trend_df).mark_line(color="#4f8cff", point=True).encode(
+                    x=alt.X("时间(秒):Q", title="时间（秒）"),
+                    y=alt.Y("次数:Q", title="每秒行为次数")
+                ).properties(height=400, width=450, title="每秒行为次数时间分布")
 
-                else:
-                    bar = alt.Chart(pd.DataFrame({"行为": ["正常"], "次数": [0]})).mark_bar().encode(
-                        x="行为:O", y="次数:Q"
-                    )
-
-                # 2. 折线图（按秒统计行为次数）
-                if time_behavior_count:
-                    trend_df = pd.DataFrame(list(time_behavior_count.items()), columns=["秒", "次数"])
-                    line = alt.Chart(trend_df).mark_line(color="#fff", point=True).encode(
-                        x=alt.X("秒:Q", title="时间（秒）"),
-                        y=alt.Y("次数:Q", title="每秒行为次数")
-                    ).properties(height=400, width=450)
-                else:
-                    line = alt.Chart(pd.DataFrame({"秒": [0], "次数": [0]})).mark_line().encode(
-                        x="秒:Q", y="次数:Q"
-                    )
-
+                # 并排显示图表
                 c1, c2 = st.columns(2)
                 with c1:
                     st.altair_chart(bar, use_container_width=True)
                 with c2:
                     st.altair_chart(line, use_container_width=True)
 
-            # 置信度Slider
+            # 6. 置信度Slider
             st.divider()
             st.subheader("置信度阈值")
-            # 收集所有置信度
             conf_list = []
             for frame in results:
                 for p in frame.get("persons", []):
@@ -250,30 +204,34 @@ if st.button("开始行为识别", type="primary", disabled=not video_path):
                 max_c = max(conf_list)
                 st.slider("筛选阈值", 0.0, 1.0, min_c, key="conf")
 
-            # BBox可视化
+            # 7. BBox可视化
             st.subheader("识别框可视化")
             cap = cv2.VideoCapture(video_path)
             ret, frame = cap.read()
             if ret and results:
-                for p in results[0].get("persons", []):
+                for p in results[0]["persons"]:
                     bbox = p.get("bbox", [])
                     label = p.get("label", "normal")
                     conf = p.get("conf", 0.0)
                     if len(bbox) == 4:
                         x1, y1, x2, y2 = map(int, bbox)
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        # 异常行为用红色框，正常用绿色框
+                        color = (0, 255, 0) if label == "normal" else (0, 0, 255)
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                         cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
                 st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_column_width=True)
             cap.release()
 
-            # JSON下载
+            # 8. JSON下载
             result_placeholder.success("识别完成！")
             outname = os.path.splitext(video_file.name)[0] + ".json"
-            st.download_button("下载识别结果", json.dumps(results, ensure_ascii=False, indent=2), outname)
+            st.download_button("下载识别结果", json.dumps(results, indent=2, ensure_ascii=False), outname)
 
         except Exception as e:
-            st.error(f"错误：{str(e)}")
+            st.error(f"识别出错：{str(e)}")
+            import traceback
+            st.error(traceback.format_exc())
         finally:
             if video_path and os.path.exists(video_path):
                 os.remove(video_path)
@@ -284,4 +242,6 @@ st.markdown('<div class="dark-card">', unsafe_allow_html=True)
 st.subheader("视频预览")
 if video_file:
     st.video(video_file)
+else:
+    st.info("请上传视频")
 st.markdown('</div>', unsafe_allow_html=True)
