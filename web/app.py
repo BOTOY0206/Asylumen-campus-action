@@ -1,234 +1,227 @@
-import streamlit as st
-import os
-import json
-import cv2
-import tempfile
-import numpy as np
 import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 【关键修复】添加项目根目录到Python搜索路径，解决模块导入问题
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from examples.inference_real import inference_real, get_action_label
+import streamlit as st
+import tempfile
+from collections import Counter
+import pandas as pd
+import altair as alt
+import cv2
+import json
 
-# 页面配置
+# -------------------------- 页面配置 --------------------------
 st.set_page_config(
-    page_title="校园行为识别系统",
-    page_icon="",
-    layout="wide"
+    page_title="校园行为智能识别系统",
+    page_icon="📹",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# 标题
-st.title("校园行为识别系统（真实识别版）")
-st.divider()
-
-# 侧边栏
-with st.sidebar:
-    st.header("操作面板")
-    st.info("上传视频文件，点击识别按钮，即可获取真实行为识别结果！")
-    
-    # 结果保存路径设置
-    output_dir = st.text_input(
-        "结果保存路径",
-        value="data/results",
-        help="识别结果JSON文件保存的位置"
-    )
-    os.makedirs(output_dir, exist_ok=True)
-
-# 主页面
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    st.subheader("上传视频")
-    # 视频上传组件
-    uploaded_file = st.file_uploader(
-        "选择视频文件",
-        type=["mp4", "avi", "mov", "mkv"],
-        accept_multiple_files=False
-    )
-    
-    # 识别按钮
-    recognize_btn = st.button(
-        "开始真实识别",
-        type="primary",
-        disabled=not uploaded_file
-    )
-
-with col2:
-    st.subheader("识别结果")
-    result_placeholder = st.empty()
-    json_placeholder = st.empty()
-    # 在这里预留下载按钮的位置
-    download_placeholder = st.empty()
-
-# 视频预览区域
-st.subheader("视频预览 & 识别结果可视化")
-# 在这里预留置信度slider和bbox可视化的位置
-conf_slider_placeholder = st.empty()
-bbox_placeholder = st.empty()
-video_placeholder = st.empty()
-
-# 核心识别逻辑
-if uploaded_file and recognize_btn:
-    with st.spinner("正在进行真实视频识别，请稍候..."):
-        # 1. 保存上传的视频到临时文件
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(uploaded_file.read())
-        video_path = tfile.name
-        
-        # 2. 调用真实识别函数（和命令行用的是同一个！）
-        result = inference_real(video_path)
-        
-        # 3. 视频预览
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        # 显示视频基本信息
-        video_info = f"""
-        视频信息：
-        - 文件名：{uploaded_file.name}
-        - 总帧数：{frame_count}
-        - 帧率：{fps} FPS
-        - 分辨率：{width} × {height}
-        - 识别行为：{get_action_label(uploaded_file.name)}
-        """
-        st.success(video_info)
-        
-        # 4. 显示核心识别结果（修复空值问题）
-        if result and len(result) > 0:
-            key_result = result[0]
-            result_html = f"""
-            <div style="background-color:#f0f8ff; padding:15px; border-radius:8px;">
-                <h4>核心识别结果（第一帧）</h4>
-                <p><strong>时间戳：</strong>{key_result.get('time', '0.0')} 秒</p>
-                <p><strong>帧号：</strong>{key_result.get('frame', '0')}</p>
-                <p><strong>人物框：</strong>{key_result.get('persons', [{}])[0].get('bbox', [])}</p>
-                <p><strong>行为标签：</strong>{key_result.get('persons', [{}])[0].get('label', 'normal')}</p>
-                <p><strong>置信度：</strong>{key_result.get('persons', [{}])[0].get('conf', '0.0')}</p>
-            </div>
-            """
-            result_placeholder.markdown(result_html, unsafe_allow_html=True)
-            
-            # 显示完整JSON结果
-            json_placeholder.subheader("完整JSON结果")
-            json_placeholder.json(result)
-            
-            # 5. 保存结果到指定路径
-            output_name = os.path.splitext(uploaded_file.name)[0] + ".json"
-            output_path = os.path.join(output_dir, output_name)
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(result, f, indent=2, ensure_ascii=False)
-            
-            st.success(f"识别完成！结果已保存到：{output_path}")
-
-            # ==============================================
-            # 🌟 Day2 功能1：置信度滑动条 slider（修复位置）
-            # ==============================================
-            conf_list = []
-            for frame_data in result:
-                persons = frame_data.get("persons", [])
-                if persons:
-                    conf = persons[0].get("conf", 0.0)
-                    conf_list.append(conf)
-            
-            min_conf = float(min(conf_list)) if conf_list else 0.0
-            max_conf = float(max(conf_list)) if conf_list else 1.0
-            
-            conf_slider_placeholder.subheader("置信度阈值")
-            conf_threshold = conf_slider_placeholder.slider(
-                "仅显示大于等于该阈值的结果",
-                min_value=0.0,
-                max_value=1.0,
-                value=min_conf
-            )
-
-            # ==============================================
-            # 🌟 Day2 功能2：JSON下载按钮（修复位置）
-            # ==============================================
-            download_placeholder.download_button(
-                label="下载JSON结果",
-                data=json.dumps(result, indent=2, ensure_ascii=False),
-                file_name=output_name,
-                mime="application/json"
-            )
-
-            # ==============================================
-            # 🌟 Day3-4 功能：BBox 可视化画框（修复位置）
-            # ==============================================
-            bbox_placeholder.subheader("识别框可视化")
-            # 重置视频读取位置到第一帧
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            ret, frame = cap.read()
-            if ret:
-                persons = key_result.get("persons", [])
-                if persons:
-                    bbox = persons[0].get("bbox", [])
-                    label = persons[0].get("label", "")
-                    conf = persons[0].get("conf", 0.0)
-
-                    if len(bbox) == 4:
-                        x1, y1, x2, y2 = map(int, bbox)
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(
-                            frame,
-                            f"{label} {conf:.2f}",
-                            (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.9,
-                            (0, 255, 0),
-                            2
-                        )
-
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                bbox_placeholder.image(frame_rgb, width=800)
-
-            # 6. 视频预览（修复caption数量不匹配问题）
-            st.info("视频预览（仅展示前10帧）：")
-            frames = []
-            # 再次重置视频位置
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            for i in range(min(10, frame_count)):
-                ret, frame = cap.read()
-                if ret:
-                    # 转换颜色空间（OpenCV BGR → RGB）
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frames.append(frame)
-            
-            # 播放预览（修复报错：去掉caption，避免数量不匹配）
-            if frames:
-                video_placeholder.image(
-                    frames,
-                    width=600,
-                    channels="RGB"
-                )
-            
-            cap.release()
-        else:
-            st.error("识别结果为空，请检查视频文件是否正常")
-            cap.release()
-        
-        # 删除临时文件
-        # 方案：加异常捕获，删不掉就跳过，绝对不报错！
-try:
-    os.unlink(video_path)
-except PermissionError:
-    # 临时文件被占用，跳过删除，不影响任何功能
-    print(f"临时文件 {video_path} 被占用，已跳过删除，不影响使用")
-except Exception as e:
-    # 其他异常也捕获，彻底兜底
-    print(f"删除临时文件时出现异常：{str(e)}，不影响使用")
-except NameError:
-    # video_path未定义时跳过，避免启动报错
-    pass
-
-# 底部说明
-st.divider()
+# -------------------------- CSS 美化 --------------------------
 st.markdown("""
-### 说明
-- 本系统已完全替换为真实视频识别逻辑，不再使用占位假数据
-- 识别结果会自动保存到 data/results 文件夹
-- 支持的视频格式：mp4、avi、mov、mkv
-- 识别行为类型：hit_wall、kick、laying、use_phone、pointing、slap_face、slap_table、smoking、squating、stand、touch、whole_process、normal
-""")
+<style>
+.stApp { background-color: #e0e9f5; }
+.main-title {
+    font-size: 2.5rem; color: #1E88E5; font-weight: bold;
+    text-align: center; margin: 20px 0 30px 0;
+}
+.dark-card {
+    background-color: #1e293b; border-radius: 16px; padding: 24px;
+    color: #ffffff; margin-bottom: 20px; border: 1px solid #334155;
+}
+.side-badge {
+    background-color: #475569; color: #ffffff; padding: 8px 16px;
+    border-radius: 8px; font-size: 1.2rem; font-weight: bold;
+    display: inline-block; margin-bottom: 20px;
+}
+.stat-item { font-size: 1.1rem; margin: 12px 0; color: #ffffff; }
+.stButton>button {
+    background-color: #3b82f6; color: white; border-radius: 8px;
+    font-weight: 600; padding: 0.6rem 1.5rem; border: none;
+}
+.stButton>button:hover { background-color: #2563eb; }
+h2, h3 { color: #ffffff !important; margin-bottom: 15px; }
+p, li { color: #1e293b !important; font-size: 1rem; }
+.stSuccess {
+    background-color: #dcfce7; color: #166534; border-radius: 8px; padding: 1rem;
+}
+.stInfo {
+    background-color: #e2e8f0; color: #0f172a; border-radius: 8px; padding: 1rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# -------------------------- 标题 --------------------------
+st.markdown('<p class="main-title">校园行为智能识别系统</p>', unsafe_allow_html=True)
+
+# -------------------------- 推理函数 --------------------------
+try:
+    from examples.inference_real import inference_real, get_action_label
+except ImportError:
+    st.warning("使用演示数据")
+    def inference_real(video_path):
+        return [
+            {"time": 0.0, "frame": 0, "persons": [{"bbox": [150,150,450,450], "label": "use_phone", "conf": 0.86}]},
+            {"time": 0.5, "frame": 15, "persons": [{"bbox": [150,150,450,450], "label": "use_phone", "conf": 0.88}]},
+            {"time": 1.0, "frame": 30, "persons": [{"bbox": [150,150,450,450], "label": "normal", "conf": 0.92}]},
+        ]
+    def get_action_label(l):
+        return {"normal":"正常","use_phone":"使用手机","hit_wall":"摔倒","loiter":"逗留"}.get(l,l)
+
+# -------------------------- 分栏 --------------------------
+col1, col2 = st.columns([3, 7])
+
+# -------------------------- 左侧：统计 + 上传 --------------------------
+with col1:
+    st.markdown('<div class="dark-card">', unsafe_allow_html=True)
+    st.markdown('<div class="side-badge">视频统计</div>', unsafe_allow_html=True)
+    st.subheader("数据概览")
+
+    stat_placeholder = st.empty()
+    stat_placeholder.markdown("""
+    <div class="stat-item">异常占比：-</div>
+    <div class="stat-item">视频时长：-</div>
+    <div class="stat-item">总帧数：-</div>
+    <div class="stat-item">异常次数：-</div>
+    <div class="stat-item">检测人数：-</div>
+    """, unsafe_allow_html=True)
+
+    st.subheader("视频上传")
+    video_file = st.file_uploader("选择视频", type=["mp4", "avi", "mov"], label_visibility="collapsed")
+    video_path = None
+
+    if video_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as f:
+            f.write(video_file.read())
+            video_path = f.name
+        st.success(f"已加载：{video_file.name}")
+
+        cap = cv2.VideoCapture(video_path)
+        st.subheader("视频信息")
+        st.write(f"• 文件名：{video_file.name}")
+        st.write(f"• 总帧数：{int(cap.get(cv2.CAP_PROP_FRAME_COUNT))}")
+        st.write(f"• 帧率：{cap.get(cv2.CAP_PROP_FPS):.1f} FPS")
+        st.write(f"• 分辨率：{int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}×{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
+        cap.release()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -------------------------- 右侧：图表 --------------------------
+with col2:
+    st.markdown('<div class="dark-card">', unsafe_allow_html=True)
+    st.markdown('<div class="main-title" style="font-size: 2rem; color: #ffffff;">行为统计分析</div>', unsafe_allow_html=True)
+    chart_container = st.container()
+    result_placeholder = st.empty()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# -------------------------- 识别逻辑 --------------------------
+if st.button("开始行为识别", type="primary", disabled=not video_path):
+    with st.spinner("正在分析..."):
+        try:
+            results = inference_real(video_path)
+
+            all_labels = []
+            time_labels = []
+            conf_list = []
+            abnormal = 0
+            total = 0
+
+            for frame in results:
+                t = frame.get("time", 0)
+                for p in frame.get("persons", []):
+                    label = p.get("label")
+                    conf = p.get("conf", 0.0)
+                    all_labels.append(label)
+                    time_labels.append((t, label))
+                    conf_list.append(conf)
+                    total += 1
+                    if label != "normal":
+                        abnormal += 1
+
+            # ====================== ✅ 【修复】左侧统计数据自动更新 ======================
+            if total > 0:
+                video_duration = round(results[-1]["time"], 2) if len(results) > 0 else 0
+                abnormal_rate = round(abnormal / total * 100, 1)
+                stat_placeholder.markdown(f"""
+                <div class="stat-item">异常占比：{abnormal_rate}%</div>
+                <div class="stat-item">视频时长：{video_duration} 秒</div>
+                <div class="stat-item">总帧数：{len(results)}</div>
+                <div class="stat-item">异常次数：{abnormal}</div>
+                <div class="stat-item">检测人数：{total}</div>
+                """, unsafe_allow_html=True)
+            # ==========================================================================
+
+            # 图表
+            with chart_container:
+                if all_labels:
+                    count = Counter(all_labels)
+                    rows = [{"行为": get_action_label(k), "次数": v} for k, v in count.items()]
+                    bar_df = pd.DataFrame(rows)
+                else:
+                    bar_df = pd.DataFrame({"行为":[],"次数":[]})
+
+                bar = alt.Chart(bar_df).mark_bar(color="#4f8cff").encode(
+                    x=alt.X("行为:O", title="行为类别"),
+                    y=alt.Y("次数:Q", title="次数")
+                ).properties(height=360)
+
+                if time_labels:
+                    trend_df = pd.DataFrame(time_labels, columns=["时间","行为"])
+                    trend_df["秒"] = trend_df["时间"].floordiv(1).astype(int)
+                    trend_cnt = trend_df.groupby("秒").size().reset_index(name="次数")
+                else:
+                    trend_cnt = pd.DataFrame({"秒":[],"次数":[]})
+
+                line = alt.Chart(trend_cnt).mark_line(color="#fff", point=True).encode(
+                    x="秒:Q", y="次数:Q"
+                ).properties(height=360)
+
+                c1, c2 = st.columns(2)
+                with c1: st.altair_chart(bar, use_container_width=True)
+                with c2: st.altair_chart(line, use_container_width=True)
+
+            # 置信度Slider
+            st.divider()
+            st.subheader("置信度阈值")
+            if conf_list:
+                min_c = min(conf_list)
+                max_c = max(conf_list)
+                st.slider("筛选阈值", 0.0, 1.0, min_c, key="conf")
+
+            # BBox可视化
+            st.subheader("识别框可视化")
+            cap = cv2.VideoCapture(video_path)
+            ret, frame = cap.read()
+            if ret and results:
+                for p in results[0]["persons"]:
+                    bbox = p.get("bbox", [])
+                    label = p.get("label")
+                    conf = p.get("conf", 0)
+                    if len(bbox) == 4:
+                        x1,y1,x2,y2 = map(int, bbox)
+                        cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
+                        cv2.putText(frame, f"{label} {conf:.2f}", (x1,y1-10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+                st.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_column_width=True)
+            cap.release()
+
+            # JSON下载
+            result_placeholder.success("识别完成！")
+            outname = os.path.splitext(video_file.name)[0] + ".json"
+            st.download_button("下载结果", json.dumps(results, indent=2, ensure_ascii=False), outname)
+
+        except Exception as e:
+            st.error(f"出错：{str(e)}")
+        finally:
+            if video_path and os.path.exists(video_path):
+                os.remove(video_path)
+
+# -------------------------- 视频预览 --------------------------
+st.divider()
+st.markdown('<div class="dark-card">', unsafe_allow_html=True)
+st.subheader("视频预览")
+if video_file:
+    st.video(video_file)
+else:
+    st.info("请上传视频")
+st.markdown('</div>', unsafe_allow_html=True)
