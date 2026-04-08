@@ -55,19 +55,9 @@ p, li { color: #1e293b !important; font-size: 1rem; }
 # -------------------------- 标题 --------------------------
 st.markdown('<p class="main-title">校园行为智能识别系统</p>', unsafe_allow_html=True)
 
-# -------------------------- 推理函数 --------------------------
-try:
-    from examples.inference_real import inference_real, get_action_label
-except ImportError:
-    st.warning("使用演示数据")
-    def inference_real(video_path):
-        return [
-            {"time": 0.0, "frame": 0, "persons": [{"bbox": [150,150,450,450], "label": "use_phone", "conf": 0.86}]},
-            {"time": 0.5, "frame": 15, "persons": [{"bbox": [150,150,450,450], "label": "use_phone", "conf": 0.88}]},
-            {"time": 1.0, "frame": 30, "persons": [{"bbox": [150,150,450,450], "label": "normal", "conf": 0.92}]},
-        ]
-    def get_action_label(l):
-        return {"normal":"正常","use_phone":"使用手机","hit_wall":"摔倒","loiter":"逗留"}.get(l,l)
+# -------------------------- 【核心修复】强制使用真实推理，彻底禁用模拟数据 --------------------------
+# 彻底删除try-except模拟兜底，强制调用你的真实推理模型
+from examples.inference_real import inference_real, get_action_label
 
 # -------------------------- 分栏 --------------------------
 col1, col2 = st.columns([3, 7])
@@ -114,10 +104,11 @@ with col2:
     result_placeholder = st.empty()
     st.markdown('</div>', unsafe_allow_html=True)
 
-# -------------------------- 识别逻辑 --------------------------
+# -------------------------- 【核心修复】识别逻辑，绑定真实推理结果 --------------------------
 if st.button("开始行为识别", type="primary", disabled=not video_path):
     with st.spinner("正在分析..."):
         try:
+            # 强制调用你的真实推理模型，彻底禁用模拟数据
             results = inference_real(video_path)
 
             all_labels = []
@@ -126,6 +117,7 @@ if st.button("开始行为识别", type="primary", disabled=not video_path):
             abnormal = 0
             total = 0
 
+            # 遍历真实推理结果，统计所有行为类别
             for frame in results:
                 t = frame.get("time", 0)
                 for p in frame.get("persons", []):
@@ -135,10 +127,11 @@ if st.button("开始行为识别", type="primary", disabled=not video_path):
                     time_labels.append((t, label))
                     conf_list.append(conf)
                     total += 1
+                    # 统计异常行为（非normal的所有类别）
                     if label != "normal":
                         abnormal += 1
 
-            # ====================== ✅ 【修复】左侧统计数据自动更新 ======================
+            # 【修复】左侧数据概览，真实数据填充
             if total > 0:
                 video_duration = round(results[-1]["time"], 2) if len(results) > 0 else 0
                 abnormal_rate = round(abnormal / total * 100, 1)
@@ -149,31 +142,49 @@ if st.button("开始行为识别", type="primary", disabled=not video_path):
                 <div class="stat-item">异常次数：{abnormal}</div>
                 <div class="stat-item">检测人数：{total}</div>
                 """, unsafe_allow_html=True)
-            # ==========================================================================
 
-            # 图表
+            # 【修复】行为分类柱状图，真实数据驱动，动态Y轴
             with chart_container:
                 if all_labels:
                     count = Counter(all_labels)
-                    rows = [{"行为": get_action_label(k), "次数": v} for k, v in count.items()]
+                    # 把英文标签转成中文，对应你的行为类别
+                    label_cn_map = {
+                        "normal": "正常",
+                        "hit_wall": "撞墙",
+                        "kick": "踢打",
+                        "smoking": "抽烟",
+                        "slap_face": "扇脸",
+                        "slap_table": "拍桌",
+                        "phone": "玩手机",
+                        "laying": "躺卧",
+                        "pointing": "指认",
+                        "squating": "蹲坐",
+                        "standing": "站立",
+                        "touch": "触摸",
+                        "whole_process": "完整流程"
+                    }
+                    rows = [{"行为": label_cn_map.get(k, k), "次数": v} for k, v in count.items()]
                     bar_df = pd.DataFrame(rows)
                 else:
-                    bar_df = pd.DataFrame({"行为":[],"次数":[]})
+                    bar_df = pd.DataFrame({"行为": [], "次数": []})
 
+                # 动态Y轴，适配真实数据，不再固定0-2500
                 bar = alt.Chart(bar_df).mark_bar(color="#4f8cff").encode(
-                    x=alt.X("行为:O", title="行为类别"),
-                    y=alt.Y("次数:Q", title="次数")
+                    x=alt.X("行为:O", title="行为类别", sort="-y"),
+                    y=alt.Y("次数:Q", title="次数", scale=alt.Scale(domain=[0, bar_df["次数"].max() + 100] if not bar_df.empty else [0, 100]))
                 ).properties(height=360)
 
+                # 【修复】时间趋势折线图，真实数据驱动，不再平线
                 if time_labels:
-                    trend_df = pd.DataFrame(time_labels, columns=["时间","行为"])
-                    trend_df["秒"] = trend_df["时间"].floordiv(1).astype(int)
+                    trend_df = pd.DataFrame(time_labels, columns=["时间", "行为"])
+                    trend_df["秒"] = trend_df["时间"].astype(float).floordiv(1).astype(int)
                     trend_cnt = trend_df.groupby("秒").size().reset_index(name="次数")
                 else:
-                    trend_cnt = pd.DataFrame({"秒":[],"次数":[]})
+                    trend_cnt = pd.DataFrame({"秒": [], "次数": []})
 
                 line = alt.Chart(trend_cnt).mark_line(color="#fff", point=True).encode(
-                    x="秒:Q", y="次数:Q"
+                    x=alt.X("秒:Q", title="秒"),
+                    y=alt.Y("次数:Q", title="次数", scale=alt.Scale(domain=[0, trend_cnt["次数"].max() + 5] if not trend_cnt.empty else [0, 30]))
                 ).properties(height=360)
 
                 c1, c2 = st.columns(2)
