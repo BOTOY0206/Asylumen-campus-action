@@ -13,26 +13,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Setup Miniconda (mamba)
+      - name: Setup Miniconda
         uses: conda-incubator/setup-miniconda@v2
         with:
           auto-activate-base: false
-          use-mamba: true
           miniconda-version: latest
           python-version: "3.13"
 
       - name: Create conda env and install numpy (conda-forge)
         run: |
-          mamba create -n ci-env python=3.13 -y
-          conda run -n ci-env mamba install -y -c conda-forge "numpy=2.0.*"
-          # Print basic numpy info (single-line python -c to keep it PowerShell-safe)
+          REM create a fresh env with Python 3.13
+          conda create -n ci-env python=3.13 -y
+          REM install numpy from conda-forge (Windows-compatible binary)
+          conda install -n ci-env -y -c conda-forge "numpy=1.26.4"
+          REM ensure pip/setuptools/wheel are available inside env
+          conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
+          REM show debug info
           conda run -n ci-env python -c "import sys, platform, numpy as np; print('PYTHON:', sys.version); print('PLATFORM:', platform.platform()); print('NUMPY:', np.__version__)"
 
-      - name: Install remaining pip deps (inside conda env)
+      - name: Install OpenCV (pip inside env)
         run: |
-          conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
-          # Install remaining requirements without reinstalling binary deps like numpy
-          conda run -n ci-env python -m pip install --no-deps -r requirements.txt
+          REM install opencv headless via pip inside the created conda env
+          conda run -n ci-env python -m pip install --no-deps opencv-python-headless==4.10.0.84
 
       - name: Show package lists (debug)
         run: |
@@ -43,8 +45,9 @@ jobs:
         env:
           PYTHONUTF8: 1
         run: |
+          REM Run the provided inference script (it will create demo_log.json if demo video absent)
           conda run -n ci-env python examples/inference_real.py
 
-      - name: Verify output file (inside conda env)
+      - name: Verify CI output file (inside conda env)
         run: |
           powershell -Command "if (Test-Path 'data/sample_videos/demo_log.json') { Write-Host 'CI Passed: File generated successfully'; exit 0 } else { Write-Host 'CI Failed: File not found'; exit 1 }"
