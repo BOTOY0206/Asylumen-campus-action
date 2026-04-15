@@ -1,13 +1,13 @@
-# 基础Web框架
-flask==3.0.0
-# 轻量版YOLO，避免依赖冲突
-ultralytics==8.3.0
-# 无GUI OpenCV，适配CI
-opencv-python-headless==4.10.0.84
-# 兼容Python 3.13的numpy版本
-numpy==2.0.0
-# WSGI服务器
-gunicorn==22.0.0
-# 解决setuptools缺失问题
-setuptools==70.0.0
-wheel==0.43.0
+# 基础Web框架（稳定版，无冲突）
+flask==2.3.3
+# YOLOv8 稳定版，完美兼容numpy 1.x
+ultralytics==8.0.200
+# 无GUI OpenCV，适配GitHub CI无屏幕环境
+opencv-python-headless==4.8.0.76
+# numpy 1.x 稳定版，ultralytics 8.0.200 官方支持
+numpy==1.24.3
+# WSGI服务器，适配Render
+gunicorn==21.2.0
+# 解决setuptools.build_meta报错，显式安装
+setuptools==69.0.0
+wheel==0.42.0
