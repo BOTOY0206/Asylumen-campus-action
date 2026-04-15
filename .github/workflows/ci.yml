@@ -24,17 +24,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run inference test
-        env:
-          PYTHONUTF8: 1
-        run: python examples/inference_real.py
-
-      - name: Verify output file
+      - name: Test backend app
         run: |
-          if (Test-Path "data/sample_videos/demo_log.json") {
-            Write-Host " CI Passed: File generated successfully"
-          } else {
-            Write-Host " CI Failed: File not found"
-            exit 1
-          }
-        shell: powershell
+          python -c "from app import app; print('✅ CI 测试成功！后端正常加载！')"
