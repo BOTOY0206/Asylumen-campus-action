@@ -1,0 +1,25 @@
+openapi: 3.0.0
+info:
+  title: Campus Behavior Infer API
+  version: "1.0"
+paths:
+  /infer_behavior:
+    post:
+      summary: Infer behavior from uploaded video
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                video:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Successful inference
+          content:
+            application/json:
+              schema:
+                type: object
