@@ -1,7 +1,28 @@
+# UI / 前端
 streamlit>=1.39.0
-opencv-python>=4.10.0.84
-numpy>=2.0.0
+
+# 基础科学计算与图像处理
+numpy>=1.24.0
+opencv-python-headless>=4.7.0.72   # 部署环境用 headless 更合适（无 GUI 依赖）
+
+# Web 服务（后端）
+Flask>=2.2.5
+gunicorn>=20.1.0
+
+# 额外后端/前端依赖
+requests>=2.31.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.7
+
+# 如果你也保留 FastAPI / 本地测试，可保留下面两项（可选）
 fastapi>=0.111.0
 uvicorn>=0.30.0
-python-multipart>=0.0.7
-python-dotenv>=1.0.0
+
+# 模型推理相关（Ultralytics / PyTorch）
+ultralytics>=8.0.0     # 如果你用 YOLOv8 的 ultralytics API，保留此项
+torch>=2.0.0
+torchvision>=0.15.0
+
+# 工具与兼容
+werkzeug>=2.2.3
+flask-cors>=3.0.10     # 若需要跨域或调试前端访问后端可启用
