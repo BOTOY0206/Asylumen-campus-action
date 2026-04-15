@@ -1,3 +1,12 @@
+name: CI Test
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
   build:
     runs-on: windows-latest
     steps:
@@ -9,31 +18,20 @@
         with:
           auto-activate-base: false
           use-mamba: true
-          miniconda-version: "latest"
+          miniconda-version: latest
           python-version: "3.13"
 
       - name: Create conda env and install numpy (conda-forge)
         run: |
           mamba create -n ci-env python=3.13 -y
-          # install numpy from conda-forge (stable binary on Windows)
           conda run -n ci-env mamba install -y -c conda-forge "numpy=2.0.*"
-          # show installed numpy info for debugging
-          conda run -n ci-env python - <<PY
-import sys, platform, numpy as np
-print("PYTHON:", sys.version)
-print("PLATFORM:", platform.platform())
-print("NUMPY VERSION:", np.__version__)
-try:
-    import numpy.distutils; print("NUMPY SHOW CONFIG:"); np.show_config()
-except Exception as e:
-    print("NUMPY show_config error:", e)
-PY
+          # Print basic numpy info (single-line python -c to keep it PowerShell-safe)
+          conda run -n ci-env python -c "import sys, platform, numpy as np; print('PYTHON:', sys.version); print('PLATFORM:', platform.platform()); print('NUMPY:', np.__version__)"
 
-      - name: Install remaining pip deps (do not reinstall numpy)
+      - name: Install remaining pip deps (inside conda env)
         run: |
-          # Use pip inside the conda env. Use --no-deps to reduce chance pip overwrites conda binary deps.
-          # NOTE: Ensure numpy is NOT listed in requirements.txt — if it is, consider removing it from requirements.txt
           conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
+          # Install remaining requirements without reinstalling binary deps like numpy
           conda run -n ci-env python -m pip install --no-deps -r requirements.txt
 
       - name: Show package lists (debug)
@@ -47,14 +45,6 @@ PY
         run: |
           conda run -n ci-env python examples/inference_real.py
 
-      - name: Verify output file
+      - name: Verify output file (inside conda env)
         run: |
-          conda run -n ci-env python - <<PY
-import os,sys
-if os.path.exists("data/sample_videos/demo_log.json"):
-    print("CI Passed: File generated successfully")
-    sys.exit(0)
-else:
-    print("CI Failed: File not found")
-    sys.exit(1)
-PY
+          powershell -Command "if (Test-Path 'data/sample_videos/demo_log.json') { Write-Host 'CI Passed: File generated successfully'; exit 0 } else { Write-Host 'CI Failed: File not found'; exit 1 }"
