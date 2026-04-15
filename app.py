@@ -7,7 +7,8 @@ import tempfile
 app = Flask(__name__)
 
 # 模型加载
-MODEL_PATH = "C:/Users/33955/Desktop/Asylum-campus-action/yolov8n.pt"
+# 模型加载（相对路径，适配所有环境：本地/CI/云服务器）
+MODEL_PATH = "yolov8n.pt"
 model = YOLO(MODEL_PATH)
 PERSON_CLASS = 0
 
