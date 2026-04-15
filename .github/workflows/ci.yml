@@ -22,18 +22,18 @@ jobs:
 
       - name: Create conda env and install numpy (conda-forge)
         run: |
-          REM create a fresh env with Python 3.13
+          # create a fresh env with Python 3.13
           conda create -n ci-env python=3.13 -y
-          REM install numpy from conda-forge (Windows-compatible binary)
+          # install numpy from conda-forge (Windows-compatible binary)
           conda install -n ci-env -y -c conda-forge "numpy=1.26.4"
-          REM ensure pip/setuptools/wheel are available inside env
+          # ensure pip/setuptools/wheel are available inside the env
           conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
-          REM show debug info
+          # show debug info
           conda run -n ci-env python -c "import sys, platform, numpy as np; print('PYTHON:', sys.version); print('PLATFORM:', platform.platform()); print('NUMPY:', np.__version__)"
 
       - name: Install OpenCV (pip inside env)
         run: |
-          REM install opencv headless via pip inside the created conda env
+          # install opencv headless inside the created conda env
           conda run -n ci-env python -m pip install --no-deps opencv-python-headless==4.10.0.84
 
       - name: Show package lists (debug)
@@ -45,7 +45,7 @@ jobs:
         env:
           PYTHONUTF8: 1
         run: |
-          REM Run the provided inference script (it will create demo_log.json if demo video absent)
+          # Run your inference script (it will create demo_log.json when no video present)
           conda run -n ci-env python examples/inference_real.py
 
       - name: Verify CI output file (inside conda env)
