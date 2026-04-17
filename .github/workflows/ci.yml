@@ -22,19 +22,15 @@ jobs:
 
       - name: Create conda env (python 3.13)
         run: |
-          # create env (no numpy here - we'll pip install numpy)
           conda create -n ci-env -y python=3.13
-          # make sure pip/setuptools/wheel available
           conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
 
       - name: Install numpy via pip inside conda env
         run: |
-          # Use the same numpy version you installed locally (adjust if needed)
           conda run -n ci-env python -m pip install --no-deps numpy==2.4.4
 
       - name: Prepare and install remaining pip deps (exclude heavy binary packages)
         run: |
-          # Build a temporary requirements that excludes numpy/ultralytics/torch to avoid pip binary conflicts
           powershell -Command "if (Test-Path 'requirements.txt') { Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*(numpy|ultralytics|torch|torchvision)\b' } | Set-Content tmp_reqs_ci.txt } else { '' > tmp_reqs_ci.txt }"
           conda run -n ci-env python -m pip install --no-deps -r tmp_reqs_ci.txt
           powershell -Command "Remove-Item tmp_reqs_ci.txt -ErrorAction SilentlyContinue"
@@ -45,16 +41,8 @@ jobs:
 
       - name: Debug: verify python/numpy info
         run: |
-          conda run -n ci-env python - <<PY
-import sys, platform
-try:
-    import numpy as np
-    print("NUMPY:", np.__version__)
-except Exception as e:
-    print("NUMPY import failed:", e)
-print("PYTHON:", sys.version)
-print("EXEC:", sys.executable)
-PY
+          # single-line python -c: safe for YAML / PowerShell (no backslashes, no multi-line string)
+          conda run -n ci-env python -c "import sys, importlib; spec=importlib.util.find_spec('numpy'); print('NUMPY_VERSION:' , (importlib.import_module('numpy').__version__ if spec else 'not installed')); print('PYTHON:', sys.version); print('EXEC:', sys.executable)"
 
       - name: Show package lists (debug)
         run: |
@@ -69,5 +57,4 @@ PY
 
       - name: Verify CI output file (inside conda env)
         run: |
-          powershell -Command "if (Test-Path 'data/sample_videos/demo](#)
-
+          powershell -Command "if (Test-Path 'data/sample_videos/demo_log.json') { Write-Host 'CI Passed: File generated successfully'; exit 0 } else { Write-Host 'CI Failed: File not found'; exit 1 }"
