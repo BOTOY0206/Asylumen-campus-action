@@ -41,7 +41,7 @@ jobs:
 
       - name: Debug - verify python/numpy info
         run: |
-          conda run -n ci-env python -c "import sys; try: import numpy as np; print('NUMPY_INSTALLED: True'); print('NUMPY_VERSION:', np.__version__); except Exception as e: print('NUMPY_INSTALLED: False', repr(e)); print('PYTHON:', sys.version); print('EXEC:', sys.executable)"
+          powershell -Command "try { conda run -n ci-env python -c 'import numpy as np; print(\"NUMPY_INSTALLED: True\"); print(\"NUMPY_VERSION:\", np.__version__)' } catch { Write-Host 'NUMPY_INSTALLED: False' $_ } ; conda run -n ci-env python -c 'import sys; print(\"PYTHON:\", sys.version); print(\"EXEC:\", sys.executable)'"
 
       - name: Show package lists (debug)
         run: |
