@@ -1,0 +1,31 @@
+# docker-compose.yml
+version: "3.8"
+services:
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    command: python app.py
+    volumes:
+      - ./:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+
+  worker:
+    build: .
+    command: python run_worker.py
+    volumes:
+      - ./:/app
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
