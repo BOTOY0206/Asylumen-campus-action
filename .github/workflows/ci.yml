@@ -31,8 +31,11 @@ jobs:
 
       - name: Prepare and install remaining pip deps (exclude heavy binary packages)
         run: |
-          powershell -Command "if (Test-Path 'requirements.txt') { Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*(numpy|ultralytics|torch|torchvision)\b' } | Set-Content tmp_reqs_ci.txt } else { '' > tmp_reqs_ci.txt }"
+          # Use Python inside the conda env to safely filter requirements.txt and write tmp_reqs_ci.txt
+          conda run -n ci-env python -c "from pathlib import Path, PurePath; import re; p=Path('requirements.txt'); lines=p.read_text(encoding='utf-8').splitlines() if p.exists() else []; out=[l for l in lines if not re.match(r'^\s*(?:numpy|ultralytics|torch|torchvision)\b', l)]; Path('tmp_reqs_ci.txt').write_text('\\n'.join(out), encoding='utf-8')"
+          # Now install the filtered requirements (tmp_reqs_ci.txt will always exist after the previous line)
           conda run -n ci-env python -m pip install --no-deps -r tmp_reqs_ci.txt
+          # cleanup
           powershell -Command "Remove-Item tmp_reqs_ci.txt -ErrorAction SilentlyContinue"
 
       - name: Install OpenCV explicitly (pip inside env)
@@ -41,4 +44,19 @@ jobs:
 
       - name: Debug - verify python/numpy info
         run: |
-          conda run -n ci-env python -c "import sys, importlib; spec = importlib.util.find_spec('numpy'); print('NUMPY_INSTALLED:', bool(spec)); print('NUMPY_VERSION:' , importlib.import_module('numpy').__version__ if spec else 'N/A'); print('PYTHON](#)
+          conda run -n ci-env python -c "import sys, importlib; spec = importlib.util.find_spec('numpy'); print('NUMPY_INSTALLED:', bool(spec)); print('NUMPY_VERSION:' , importlib.import_module('numpy').__version__ if spec else 'N/A'); print('PYTHON:' , sys.version); print('EXEC:' , sys.executable)"
+
+      - name: Show package lists (debug)
+        run: |
+          conda run -n ci-env conda list
+          conda run -n ci-env python -m pip freeze
+
+      - name: Run inference test
+        env:
+          PYTHONUTF8: 1
+        run: |
+          conda run -n ci-env python examples/inference_real.py
+
+      - name: Verify CI output file (inside conda env)
+        run: |
+          powershell -Command "if (Test-Path 'data/sample_videos/demo_log.json') { Write-Host 'CI Passed: File generated successfully'; exit 0 } else { Write-Host 'CI Failed: File not found'; exit 1 }"
