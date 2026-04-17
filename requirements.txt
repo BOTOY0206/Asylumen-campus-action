@@ -1,13 +1,7 @@
-# 用ultralytics 8.3.0，官方原生支持Python 3.13，彻底解决版本兼容
-ultralytics==8.3.0
-# 用opencv-python-headless 4.10.0.84，原生支持Python 3.13
-opencv-python-headless==4.10.0.84
-# 用numpy 1.26.4，ultralytics 8.3.0官方支持，兼容Python 3.13
-numpy==1.26.4
-# Flask 3.0.3，稳定兼容Python 3.13
-flask==3.0.3
-# gunicorn 22.0.0，适配Python 3.13
-gunicorn==22.0.0
-# 显式安装最新版setuptools和wheel，彻底解决build_meta报错
-setuptools==75.0.0
-wheel==0.44.0
+flask==2.3.3
+ultralytics==8.0.200
+opencv-python-headless==4.8.0.76
+numpy==1.24.3
+gunicorn==21.2.0
+setuptools==69.0.0
+wheel==0.42.0
