@@ -31,7 +31,7 @@ jobs:
 
       - name: Prepare and install remaining pip deps (exclude heavy binary packages)
         run: |
-          powershell -Command "if (Test-Path 'requirements.txt') { Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*(numpy|ultralytics|torch|torchvision)\b' } | Set-Content tmp_reqs_ci.txt } else { '' > tmp_reqs_ci.txt }"
+          powershell -Command "if (Test-Path 'requirements.txt') { Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*(numpy|ultralytics)\b' } | Set-Content tmp_reqs_ci.txt } else { '' > tmp_reqs_ci.txt }"
           conda run -n ci-env python -m pip install --no-deps -r tmp_reqs_ci.txt
           powershell -Command "Remove-Item tmp_reqs_ci.txt -ErrorAction SilentlyContinue"
 
@@ -41,7 +41,6 @@ jobs:
 
       - name: Debug: verify python/numpy info
         run: |
-          # single-line python -c: safe for YAML / PowerShell (no backslashes, no multi-line string)
           conda run -n ci-env python -c "import sys, importlib; spec=importlib.util.find_spec('numpy'); print('NUMPY_VERSION:' , (importlib.import_module('numpy').__version__ if spec else 'not installed')); print('PYTHON:', sys.version); print('EXEC:', sys.executable)"
 
       - name: Show package lists (debug)
