@@ -20,21 +20,41 @@ jobs:
           miniconda-version: latest
           python-version: "3.13"
 
-      - name: Create conda env and install numpy (conda-forge)
+      - name: Create conda env (python 3.13)
         run: |
-          # create a fresh env with Python 3.13
-          conda create -n ci-env python=3.13 -y
-          # install numpy from conda-forge (Windows-compatible binary)
-          conda install -n ci-env -y -c conda-forge "numpy=1.26.4"
-          # ensure pip/setuptools/wheel are available inside the env
+          # create env (no numpy here - we'll pip install numpy)
+          conda create -n ci-env -y python=3.13
+          # make sure pip/setuptools/wheel available
           conda run -n ci-env python -m pip install --upgrade pip setuptools wheel
-          # show debug info
-          conda run -n ci-env python -c "import sys, platform, numpy as np; print('PYTHON:', sys.version); print('PLATFORM:', platform.platform()); print('NUMPY:', np.__version__)"
 
-      - name: Install OpenCV (pip inside env)
+      - name: Install numpy via pip inside conda env
         run: |
-          # install opencv headless inside the created conda env
+          # Use the same numpy version you installed locally (adjust if needed)
+          conda run -n ci-env python -m pip install --no-deps numpy==2.4.4
+
+      - name: Prepare and install remaining pip deps (exclude heavy binary packages)
+        run: |
+          # Build a temporary requirements that excludes numpy/ultralytics/torch to avoid pip binary conflicts
+          powershell -Command "if (Test-Path 'requirements.txt') { Get-Content requirements.txt | Where-Object { $_ -notmatch '^\s*(numpy|ultralytics|torch|torchvision)\b' } | Set-Content tmp_reqs_ci.txt } else { '' > tmp_reqs_ci.txt }"
+          conda run -n ci-env python -m pip install --no-deps -r tmp_reqs_ci.txt
+          powershell -Command "Remove-Item tmp_reqs_ci.txt -ErrorAction SilentlyContinue"
+
+      - name: Install OpenCV explicitly (pip inside env)
+        run: |
           conda run -n ci-env python -m pip install --no-deps opencv-python-headless==4.10.0.84
+
+      - name: Debug: verify python/numpy info
+        run: |
+          conda run -n ci-env python - <<PY
+import sys, platform
+try:
+    import numpy as np
+    print("NUMPY:", np.__version__)
+except Exception as e:
+    print("NUMPY import failed:", e)
+print("PYTHON:", sys.version)
+print("EXEC:", sys.executable)
+PY
 
       - name: Show package lists (debug)
         run: |
@@ -45,9 +65,9 @@ jobs:
         env:
           PYTHONUTF8: 1
         run: |
-          # Run your inference script (it will create demo_log.json when no video present)
           conda run -n ci-env python examples/inference_real.py
 
       - name: Verify CI output file (inside conda env)
         run: |
-          powershell -Command "if (Test-Path 'data/sample_videos/demo_log.json') { Write-Host 'CI Passed: File generated successfully'; exit 0 } else { Write-Host 'CI Failed: File not found'; exit 1 }"
+          powershell -Command "if (Test-Path 'data/sample_videos/demo](#)
+
