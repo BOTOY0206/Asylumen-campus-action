@@ -12,8 +12,23 @@ MODEL_PATH = "yolov8n-pose.pt"
 model = YOLO(MODEL_PATH)
 PERSON_CLASS = 0
 
-# 行为标签
-LABEL_MAP = {0: "normal", 1: "fighting", 2: "falling", 3: "running", 4: "climbing"}
+# 行为标签 新增全部11类
+LABEL_MAP = {
+    0: "normal",
+    1: "fighting",
+    2: "lie",
+    3: "running",
+    4: "climbing",
+    5: "stand",
+    6: "squat",
+    7: "hit",
+    8: "kick",
+    9: "slap",
+    10: "point",
+    11: "call",
+    12: "smoke",
+    13: "touch"
+}
 
 
 # ==============================
@@ -50,14 +65,18 @@ def infer_behavior():
         }), 404
 
     # --------------------------
-    # 4. 推理
+    # 4. 推理 统计字典同步新增所有行为
     # --------------------------
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
 
     abnormal_frames = 0
-    action_stats = {"running": 0, "fighting": 0, "falling": 0, "climbing": 0}
+    action_stats = {
+        "running": 0, "fighting": 0, "lie": 0, "climbing": 0,
+        "stand":0, "squat":0, "hit":0, "kick":0, "slap":0,
+        "point":0, "call":0, "smoke":0, "touch":0, "normal":0
+    }
     time_series = []
     frames = []
     frame_idx = 0
@@ -78,9 +97,8 @@ def infer_behavior():
             label = "normal"
 
             # ======================
-            # 🔥 修复BUG + 精准姿态识别
+            # 防护：关键点为空不崩溃
             # ======================
-            # 防护1：防止关键点未检测到导致报错
             if results[0].keypoints is None:
                 current_persons.append({
                     "bbox": [x1, y1, x2, y2],
@@ -91,8 +109,6 @@ def infer_behavior():
                 continue
 
             keypoints = results[0].keypoints[idx].xy.cpu().numpy()[0]
-
-            # 防护2：关节点未识别到时，跳过判断
             if np.all(keypoints == 0):
                 current_persons.append({
                     "bbox": [x1, y1, x2, y2],
@@ -102,33 +118,74 @@ def infer_behavior():
                 })
                 continue
 
-            # 提取关节坐标
-            nose_y = keypoints[0][1]
-            shoulder_y = keypoints[5][1]
-            hip_y = keypoints[11][1]
-            knee_l_y = keypoints[13][1]
-            knee_r_y = keypoints[14][1]
-            ankle_y = keypoints[15][1]
+            # YOLO姿态17关键点
+            nose = keypoints[0]
+            shoulder_l = keypoints[5]
+            shoulder_r = keypoints[6]
+            hand_l = keypoints[9]
+            hand_r = keypoints[10]
+            hip = keypoints[11]
+            knee_l = keypoints[13]
+            knee_r = keypoints[14]
+            ankle_l = keypoints[15]
+            ankle_r = keypoints[16]
 
-            # ======================
-            # ✅ 优化后：精准行为判断（不再乱判）
-            # ======================
+            # ==============================================
+            # 🔥 核心：彻底删除 俩人=打斗
+            # 只有多人紧贴重叠纠缠 → 才是fighting打斗
+            # ==============================================
+            fight_detected = False
             if person_num >= 2:
-                # 多人 + 肢体靠近 → 打斗（更合理）
-                label = "fighting"
+                cx = (x1 + x2) / 2
+                cy = (y1 + y2) / 2
+                for other_b in results[0].boxes:
+                    if other_b == b: continue
+                    ox1, oy1, ox2, oy2 = other_b.xyxy[0]
+                    ocx = (ox1+ox2)/2
+                    ocy = (oy1+oy2)/2
+                    dist = np.hypot(cx-ocx, cy-ocy)
+                    if dist < (x2-x1)*0.7:
+                        fight_detected = True
+                        break
+
+            if abs(nose[1] - ankle_l[1]) < 80:
+                label = "lie"
+            # 下蹲 squat
+            elif knee_l[1] > hip[1] + 60 or knee_r[1] > hip[1] + 60:
+                label = "squat"
+            # 站立 stand
+            elif hip[1] - knee_l[1] > 70 and hip[1] - knee_r[1] > 70:
+                label = "stand"
+            # 踢腿 kick
+            elif abs(knee_l[1] - knee_r[1]) > 90:
+                label = "kick"
+            # 手臂前伸打击 hit
+            elif hand_l[0] < x1-40 or hand_r[0] > x2+40:
+                label = "hit"
+            # 抬手扇耳光 slap
+            elif abs(hand_l[1]-nose[1])<50 or abs(hand_r[1]-nose[1])<50:
+                label = "slap"
+            # 手指指向 point
+            elif hand_l[0]<x1-60 or hand_r[0]>x2+60:
+                label = "point"
+            # 手贴耳朵打电话 call
+            elif abs(hand_l[1]-nose[1])<60 or abs(hand_r[1]-nose[1])<60:
+                label = "call"
+            # 手靠近嘴抽烟 smoke
+            elif abs(hand_l[1]-nose[1]+25)<45 or abs(hand_r[1]-nose[1]+25)<45:
+                label = "smoke"
+            # 手贴身触摸 touch
+            elif abs(hand_l[0]-x1)<50 or abs(hand_r[0]-x2)<50:
+                label = "touch"
+            # 攀爬 手臂高举
+            elif shoulder_l[1] < hip[1]-110 or shoulder_r[1] < hip[1]-110:
+                label = "climbing"
+            # 奔跑 双腿交错
+            elif abs(knee_l[1]-knee_r[1])>55:
+                label = "running"
+            # 其余全部正常
             else:
-                # 摔倒：人平躺（头和脚高度接近）
-                if nose_y != 0 and ankle_y != 0 and abs(nose_y - ankle_y) < 80:
-                    label = "falling"
-                # 攀爬：手臂上举
-                elif shoulder_y != 0 and hip_y != 0 and shoulder_y < hip_y - 100:
-                    label = "climbing"
-                # 奔跑：双腿交替
-                elif knee_l_y != 0 and knee_r_y != 0 and abs(knee_l_y - knee_r_y) > 50:
-                    label = "running"
-                # 否则正常
-                else:
-                    label = "normal"
+                label = "normal"
 
             current_persons.append({
                 "bbox": [x1, y1, x2, y2],
@@ -137,23 +194,18 @@ def infer_behavior():
                 "fallback": False
             })
 
-        # 统计数据
+        # 帧数据存入
         frames.append({
             "time": round(frame_idx / fps, 2),
             "persons": current_persons
         })
 
+        # 全行为统计
         for p in current_persons:
-            if p["label"] == "fighting":
-                action_stats["fighting"] += 1
-            elif p["label"] == "falling":
-                action_stats["falling"] += 1
-            elif p["label"] == "running":
-                action_stats["running"] += 1
-            elif p["label"] == "climbing":
-                action_stats["climbing"] += 1
+            action_stats[p["label"]] += 1
 
-        if any(p["label"] != "normal" for p in current_persons):
+        # 异常判断
+        if any(p["label"] not in ["normal","stand"] for p in current_persons):
             abnormal_frames += 1
 
         frame_idx += 1
