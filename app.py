@@ -43,13 +43,12 @@ except Exception as _e:
         raise RuntimeError("本地推理不可用：导入 inference 模块失败，原因：" + str(_MODEL_IMPORT_ERROR))
 
     def get_action_label(x):
-        # fallback: convert numeric to str
         return str(x)
 
 # --------------------------
 # Defaults and API URL
 # --------------------------
-DEFAULT_API_URL = "https://gills-expediter-dreary.ngrok-free.dev/infer_behavior"  # <-- updated to provided ngrok URL
+DEFAULT_API_URL = "https://gills-expediter-dreary.ngrok-free.dev/infer_behavior"
 if 'api_url' not in st.session_state:
     st.session_state['api_url'] = DEFAULT_API_URL
 
@@ -73,41 +72,38 @@ st.markdown("""
 :root{
   --bg: #fbfdfe;
   --panel-bg: #ffffff;
-  --title-color: #111827; /* deep text color */
+  --title-color: #111827;
   --subtitle-color: #6b7280;
   --primary: #2563eb;
   --muted: #6b7280;
   --radius: 12px;
 }
 
-/* global font + app background */
 [data-testid="stApp"] * { font-family: "Inter", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
 [data-testid="stApp"] > section {
   background: var(--bg) !important;
   padding: 20px 24px !important;
 }
 
-/* Centered light hero (icon + large title + subtitle) */
 .hero {
   width: 100%;
   background: transparent;
   padding: 36px 12px 12px 12px;
   margin-bottom: 10px;
   display: flex;
-  justify-content: center; /* center horizontally */
+  justify-content: center;
 }
 .hero-inner {
   max-width: 1100px;
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center; /* center contents */
+  align-items: center;
   gap: 8px;
   text-align: center;
   padding: 8px 12px;
 }
 
-/* Row for icon + title on wide screens */
 .hero-row {
   display: flex;
   align-items: center;
@@ -116,7 +112,6 @@ st.markdown("""
   flex-wrap: nowrap;
 }
 
-/* Icon */
 .hero-icon {
   width: 72px;
   height: 72px;
@@ -129,7 +124,6 @@ st.markdown("""
 }
 .hero-icon svg { width: 56px; height: 56px; }
 
-/* Title + subtitle */
 .hero-title {
   font-weight: 700;
   font-size: 48px;
@@ -145,7 +139,6 @@ st.markdown("""
   margin-top: 6px;
 }
 
-/* Keep other components styled nicely */
 .dark-card {
   background: linear-gradient(180deg, rgba(8,13,20,0.98), rgba(13,18,26,0.98));
   border-radius: var(--radius);
@@ -194,15 +187,12 @@ st.markdown("""
   box-shadow: 0 8px 18px rgba(37,99,235,0.10);
 }
 
-/* uploader / video preview */
 .stFileUploader { border-radius: 10px; padding: 10px; }
 .stVideoContainer, .stVideo { border-radius: 10px; overflow: hidden; }
 
-/* small tweaks */
 .stCheckbox > label { font-weight: 600; color: var(--title-color); }
 .stSlider > div { margin-top: 6px; margin-bottom: 6px; }
 
-/* responsive */
 @media (max-width: 900px) {
   .hero-title { font-size: 28px; }
   .hero-icon { width:56px; height:56px; }
@@ -212,12 +202,10 @@ st.markdown("""
 }
 </style>
 
-<!-- Centered Hero HTML -->
 <div class="hero">
   <div class="hero-inner">
     <div class="hero-row">
       <div class="hero-icon" aria-hidden="true">
-        <!-- camera SVG (stylized) -->
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <rect x="1.5" y="5" width="13" height="12" rx="2" fill="#111827" opacity="0.06"/>
           <path d="M15 7l6-4v18l-6-4" fill="#111827" opacity="0.9"/>
@@ -231,7 +219,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# -------------------------- Header & Demo toggle (below hero) --------------------------
+# -------------------------- Header & Demo toggle --------------------------
 top_col1, top_col2 = st.columns([1, 4])
 with top_col1:
     st.session_state['use_demo_mode'] = st.checkbox(
@@ -253,11 +241,9 @@ with col1:
     st.markdown('<div class="light-card">', unsafe_allow_html=True)
     st.markdown('<div class="side-badge">视频统计</div>', unsafe_allow_html=True)
     st.subheader("数据概览")
-    # replaced: use icon-list rendering but keep variable name stat_placeholder
     stat_placeholder = st.empty()
 
     def _render_stat_html(abnormal_rate, video_duration, total_frames, abnormal_count, total_persons, fallback_count):
-        # small inline layout using existing CSS variables to stay theme-compatible
         return f"""
         <div style="display:flex;flex-direction:column;gap:10px;padding:6px 4px;">
           <div style="display:flex;align-items:center;gap:12px;font-size:15px;color:var(--title-color);">
@@ -287,7 +273,6 @@ with col1:
         </div>
         """
 
-    # initial placeholder: show dashes until we have real values
     stat_placeholder.markdown(_render_stat_html("-", "-", "-", "-", "-", "-"), unsafe_allow_html=True)
 
     st.subheader("视频上传")
@@ -299,7 +284,6 @@ with col1:
         st.success(f"已加载：{video_file.name}")
         prev_name = st.session_state.get('last_uploaded_name')
         if prev_name != video_file.name:
-            # reset results state on new upload
             st.session_state['results'] = None
             st.session_state['results_json'] = None
             st.session_state['use_demo_local'] = False
@@ -326,11 +310,10 @@ with col1:
             pass
     st.markdown('</div>', unsafe_allow_html=True)
 
-# -------------------------- Right: charts container (now used for visualization) --------------------------
+# -------------------------- Right: charts container --------------------------
 with col2:
     st.markdown('<div class="dark-card">', unsafe_allow_html=True)
     st.markdown('<div class="main-title" style="font-size: 1.6rem; color: #ffffff;">行为统计分析</div>', unsafe_allow_html=True)
-    # chart_container originally held charts; after swap it will contain the bbox visualization and related controls
     chart_container = st.container()
     result_placeholder = st.empty()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -348,31 +331,20 @@ def to_serializable(obj):
     return obj
 
 def norm_key(k: str) -> str:
-    """Normalize a label key for matching: lowercase, replace non-alnum with underscore."""
     if not isinstance(k, str):
         return str(k)
     return re.sub(r'[^0-9a-zA-Z]+', '_', k.strip().lower())
 
-# Robust label extraction helper (added to fix NameError)
 def extract_label_from_person(p):
-    """
-    从单个人对象里安全提取标签，返回字符串。
-    兼容多种字段名：label, action, pred, class, class_name, label_name,
-    也兼容 label_id/label_idx（会调用 get_action_label 进行映射），
-    还会处理字符串、数字和 bytes。
-    """
     if p is None:
         return "unknown"
-    # If p itself is a string
     if isinstance(p, str):
         return p
-    # If p is numeric index
     if isinstance(p, (int, np.integer)):
         try:
             return get_action_label(int(p))
         except Exception:
             return str(p)
-    # If dict, check common keys
     if isinstance(p, dict):
         for k in ("label", "action", "pred", "class", "class_name", "label_name"):
             if k in p and p[k] is not None:
@@ -391,13 +363,11 @@ def extract_label_from_person(p):
                     return get_action_label(int(p[k]))
                 except Exception:
                     return str(p[k])
-    # Fallbacks
     try:
         return str(p)
     except Exception:
         return "unknown"
 
-# translation map (extendable)
 LABEL_TRANSLATE = {
     "normal": "正常",
     "climbing": "攀爬",
@@ -405,34 +375,24 @@ LABEL_TRANSLATE = {
     "fighting": "打斗",
     "running": "奔跑",
     "phone": "玩手机",
+    "call": "打电话",
     "pointing": "指认",
-    "slap_face": "扇脸",
-    "slap-face": "扇脸",
-    "slapface": "扇脸",
-    "slap_table": "拍桌",
-    "smoking": "抽烟",
-    "squating": "蹲坐",
+    "slap": "拍打",
+    "smoke": "抽烟",
+    "squat": "下蹲",
     "stand": "站立",
     "touch": "触摸",
-    # add more aliases as needed
+    "lie": "躺倒",
+    "hit": "撞墙",
+    "kick": "踢腿"
 }
 
 def translate_label(k: str) -> str:
     nk = norm_key(k)
-    # try direct
     if nk in LABEL_TRANSLATE:
         return LABEL_TRANSLATE[nk]
-    # try variants
-    for src, dst in LABEL_TRANSLATE.items():
-        if norm_key(src) == nk:
-            return dst
-    # fallback: pretty print
     return k.replace('_', ' ').title() if isinstance(k, str) else str(k)
 
-# --------------------------
-# AXIS_LABEL_MAP: map backend labels -> axis label names (user provided)
-# Left: backend label, Right: axis label desired on charts
-# --------------------------
 AXIS_LABEL_MAP_RAW = {
     "phone": "call",
     "laying": "lie",
@@ -445,64 +405,45 @@ AXIS_LABEL_MAP_RAW = {
     "sample": "normal",
     "kick": "kick"
 }
-# normalize keys
 AXIS_LABEL_MAP = {norm_key(k): v for k, v in AXIS_LABEL_MAP_RAW.items()}
 
 def find_frames_in_data(d):
-    """Try to find a frames-like list inside dict d under common keys."""
     if not isinstance(d, dict):
         return None
     candidates = ['frames', 'results', 'detailed_frames', 'detections', 'items', 'frames_list']
     for k in candidates:
         if k in d and isinstance(d[k], list):
             return d[k]
-    # also scan for any value that is a list of dicts and looks like frames (contains 'time' or 'persons' keys)
     for k, v in d.items():
         if isinstance(v, list) and v and isinstance(v[0], dict):
-            # heuristics: contains time or persons or bbox keys
             sample = v[0]
             if any(x in sample for x in ('time', 'persons', 'bbox', 'frame_idx', 'frame')):
                 return v
     return None
 
 def find_action_stats_in_data(d):
-    """Try to find action_stats-like dict inside response data."""
     if not isinstance(d, dict):
         return None
-    # common key
     if 'action_stats' in d and isinstance(d['action_stats'], dict):
         return d['action_stats']
-    # fallback: search for first dict whose values are ints/floats
     for k, v in d.items():
         if isinstance(v, dict):
-            # check values are numeric
             if all(isinstance(x, (int, np.integer, float, np.floating)) for x in v.values()):
                 return v
     return None
 
-# --------------------------
-# New helper: parse time into seconds
-# --------------------------
 def parse_time_to_seconds(t):
-    """Parse t into seconds (float).
-       Accepts numeric (int/float), numeric-string ("12.3"), or time strings "MM:SS" or "HH:MM:SS".
-       Returns 0.0 if cannot parse.
-    """
     if t is None:
         return 0.0
-    # numeric types
     try:
         if isinstance(t, (int, float, np.integer, np.floating)):
             return float(t)
     except Exception:
         pass
-    # strings
     if isinstance(t, str):
         s = t.strip()
-        # formats like HH:MM:SS or MM:SS
         if ':' in s:
             parts = s.split(':')
-            # allow parts that are numeric (may contain leading zeros)
             if all(part.isdigit() for part in parts):
                 parts = [int(p) for p in parts]
                 if len(parts) == 3:
@@ -511,12 +452,10 @@ def parse_time_to_seconds(t):
                     return parts[0] * 60 + parts[1]
                 if len(parts) == 1:
                     return float(parts[0])
-        # plain numeric string
         try:
             return float(s)
         except Exception:
             return 0.0
-    # fallback: try convert
     try:
         return float(t)
     except Exception:
@@ -529,7 +468,6 @@ button_enabled = st.session_state.get('use_demo_mode') or (st.session_state.get(
 if st.button(btn_label, type="primary", disabled=not button_enabled):
     with st.spinner("正在分析..."):
         try:
-            # ---------- DEMO branch ----------
             if st.session_state.get('use_demo_mode'):
                 demo_path = os.path.join("data", "sample_videos", "demo_log.json")
                 if not os.path.exists(demo_path):
@@ -547,7 +485,6 @@ if st.button(btn_label, type="primary", disabled=not button_enabled):
                 st.session_state['api_time_series'] = None
                 st.session_state['api_stats'] = None
 
-                # Keep uploaded video if present; otherwise try repo demo video for preview
                 if not st.session_state.get('video_tmp'):
                     candidate_paths = [
                         os.path.join("data", "sample_videos", "demo.mp4"),
@@ -563,26 +500,22 @@ if st.button(btn_label, type="primary", disabled=not button_enabled):
                         st.session_state['video_tmp'] = found
                         st.info(f"Demo 模式：使用示例视频作为帧源：{found}")
                     else:
-                        st.warning("已加载 demo 数据，但未检测到本地视频用于帧预览（未上传或仓库无示例视频）。可视化区域将显示占位画布。")
+                        st.warning("已加载 demo 数据，但未检测到本地视频用于帧预览。")
                 else:
                     st.info("已加载 demo 数据；检测到上传视频，保留用于帧可视化。")
                 result_placeholder.success("已加载 demo 数据（未触发推理）。")
 
-            # ---------- REMOTE / LOCAL branch ----------
             else:
                 tmp_vid = st.session_state.get('video_tmp')
                 if not tmp_vid or not os.path.exists(tmp_vid):
                     st.error("请先上传视频或启 demo 模式。")
                     st.stop()
 
-                # Try remote API first - upload file as multipart/form-data with field name "video"
                 api_url = st.session_state.get('api_url', DEFAULT_API_URL)
                 remote_success = False
                 try:
-                    # Open the temporary video file and upload as "video" field (backend expects form-data with key "video")
                     with open(tmp_vid, "rb") as vf:
                         files = {"video": (os.path.basename(tmp_vid), vf, "video/mp4")}
-                        # increase timeout because inference may take long
                         resp = requests.post(api_url, files=files, timeout=600)
                     resp.raise_for_status()
                     j = resp.json()
@@ -590,7 +523,6 @@ if st.button(btn_label, type="primary", disabled=not button_enabled):
                         data = j["data"]
                         st.success("远端 API 上传并返回成功（结果已载入）")
                         st.session_state['api_result'] = data
-                        # try to extract action_stats/time_series/frames
                         action_stats = find_action_stats_in_data(data) or {}
                         st.session_state['api_display_counts'] = action_stats
                         st.session_state['api_time_series'] = data.get("time_series", []) or []
@@ -599,18 +531,14 @@ if st.button(btn_label, type="primary", disabled=not button_enabled):
                             "abnormal_frames": data.get("abnormal_frames"),
                             "total_frames": data.get("total_frames")
                         }
-                        # frames extraction — support nested keys
                         frames = find_frames_in_data(data)
                         if frames:
-                            # store frames specifically (so downstream code can visualize)
                             st.session_state['results'] = frames
-                            # save results_json for persistence (store original data under 'frames' key)
                             try:
                                 st.session_state['results_json'] = json.dumps({"frames": frames}, ensure_ascii=False)
                             except Exception:
                                 st.session_state['results_json'] = json.dumps(to_serializable({"frames": frames}), ensure_ascii=False)
                         else:
-                            # persist aggregated data as results_json so UI can still show stats
                             try:
                                 st.session_state['results_json'] = json.dumps(data, ensure_ascii=False)
                             except Exception:
@@ -619,41 +547,25 @@ if st.button(btn_label, type="primary", disabled=not button_enabled):
                     else:
                         st.error(f"远端返回异常: {j.get('msg', str(j))}")
                 except requests.exceptions.RequestException as e:
-                    st.warning(f"远端上传失败（将尝试本地推理或仅展示占位）：{e}")
+                    st.warning(f"远端上传失败：{e}")
                 except Exception as e:
-                    st.warning(f"远端上传失败（将尝试本地推理或仅展示占位）：{e}")
+                    st.warning(f"远端上传失败：{e}")
 
-                # If remote failed and local model available, fallback to local inference
-                if not remote_success:
-                    if MODEL_AVAILABLE:
-                        try:
-                            _res = inference_real(tmp_vid)
-                            try:
-                                st.session_state['results_json'] = json.dumps(_res, ensure_ascii=False)
-                            except Exception:
-                                st.session_state['results_json'] = json.dumps(to_serializable(_res), ensure_ascii=False)
-                            st.session_state['results'] = _res
-                            st.session_state['use_demo_local'] = False
-                            result_placeholder.success("本地推理已完成（远端不可用）。")
-                        except Exception as e:
-                            st.error(f"本地推理失败：{e}")
-                            import traceback
-                            st.error(traceback.format_exc())
-                            st.session_state['results'] = None
-                            st.session_state['results_json'] = None
-                            st.session_state['use_demo_local'] = False
-                    else:
-                        st.error("远端不可用且本地模型不可用：无法完成识别。")
-                        st.session_state['results'] = None
-                        st.session_state['results_json'] = None
+                if not remote_success and MODEL_AVAILABLE:
+                    try:
+                        _res = inference_real(tmp_vid)
+                        st.session_state['results_json'] = json.dumps(_res, ensure_ascii=False)
+                        st.session_state['results'] = _res
                         st.session_state['use_demo_local'] = False
-
+                        result_placeholder.success("本地推理已完成（远端不可用）。")
+                    except Exception as e:
+                        st.error(f"本地推理失败：{e}")
+                        st.session_state['results'] = None
+                elif not remote_success:
+                    st.error("远端不可用且本地模型不可用。")
         except Exception as e:
             st.error(f"识别出错：{str(e)}")
-            import traceback
-            st.error(traceback.format_exc())
 
-# Clear control
 if st.button("清除识别结果 / 删除临时视频"):
     tmp = st.session_state.get('video_tmp')
     if tmp and os.path.exists(tmp):
@@ -664,43 +576,84 @@ if st.button("清除识别结果 / 删除临时视频"):
     for k in ['results', 'results_json', 'video_tmp', 'use_demo_local', 'last_uploaded_name', 'conf',
               'api_result', 'api_display_counts', 'api_time_series', 'api_stats']:
         st.session_state[k] = None if k != 'conf' else 0.0
-    st.success("已清除结果和临时视频（如存在）")
+    st.success("已清除结果和临时视频！")
 
-# -------------------------- Use results (JSON-backed) --------------------------
-# load results from results_json if present (could be aggregated data from remote API)
+# -------------------------- Result Render --------------------------
 if st.session_state.get('results_json'):
     try:
         loaded = json.loads(st.session_state['results_json'])
-        # Keep original results if it's a frames wrapper: {"frames":[...]}
         if isinstance(loaded, dict) and 'frames' in loaded and isinstance(loaded['frames'], list):
             frames_list = loaded['frames']
             st.session_state['results'] = frames_list
         else:
-            # if loaded is a list or dict, keep as results
-            st.session_state['results'] = loaded if not isinstance(loaded, dict) else st.session_state.get('results') or loaded
+            frames_list = loaded if isinstance(loaded, list) else []
     except Exception:
-        pass
-
-results = st.session_state.get('results')
-# frames_list: only valid when results is a list of frames; otherwise try extract from api_result too
-frames_list = []
-if isinstance(results, list):
-    frames_list = results
+        frames_list = []
 else:
-    # try to see if api_result contains frames
-    api_res = st.session_state.get('api_result')
-    if api_res and isinstance(api_res, dict):
-        f = find_frames_in_data(api_res)
-        if isinstance(f, list):
-            frames_list = f
+    frames_list = []
 
-# If remote API provided aggregated stats, use those for charts; otherwise derive from frames_list
 api_counts = st.session_state.get('api_display_counts') or {}
 api_time_series = st.session_state.get('api_time_series') or []
 api_stats = st.session_state.get('api_stats') or {}
 
 if not frames_list and not api_counts:
-    st.info("当前没有识别结果。请上传视频并点击“开始行为识别”或启用 demo 模式并加载 demo 数据。")
+    st.info("请上传视频并点击“开始行为识别”")
 else:
-    # Build conf_list only if frames_list exist and contain persons
-    conf_list
+    # 行为统计
+    all_labels = []
+    total_persons = 0
+    abnormal_count = 0
+    ABNORMAL = {"call", "smoke", "squat", "lie", "hit", "kick", "slap", "climbing", "fighting", "running", "point"}
+
+    for frame in frames_list:
+        persons = frame.get("persons", [])
+        if persons:
+            p = persons[0]
+            lbl = extract_label_from_person(p)
+            all_labels.append(lbl)
+            total_persons = 1
+            if lbl in ABNORMAL:
+                abnormal_count += 1
+
+    # 统计数据
+    total_frames = api_stats.get("total_frames", len(frames_list))
+    abnormal_ratio = f"{api_stats.get('abnormal_ratio', 0)}%"
+    video_duration = round(total_frames / 25, 1) if total_frames else 0
+
+    # 刷新统计面板
+    stat_placeholder.markdown(
+        _render_stat_html(abnormal_ratio, video_duration, total_frames, abnormal_count, total_persons, 0),
+        unsafe_allow_html=True
+    )
+
+    # 统计图
+    with chart_container:
+        if api_counts:
+            df = pd.DataFrame(list(api_counts.items()), columns=["行为", "次数"])
+        else:
+            df = pd.DataFrame(Counter(all_labels).items(), columns=["行为", "次数"])
+
+        df["行为"] = df["行为"].apply(translate_label)
+        bar = alt.Chart(df).mark_bar(color='#3b82f6').encode(
+            x=alt.X('行为', sort='-y'), y='次数'
+        ).properties(height=250, title="行为频次统计")
+        st.altair_chart(bar, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("实时行为预览")
+        cap = cv2.VideoCapture(st.session_state.get('video_tmp', ''))
+        total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frame_idx = st.slider("帧进度", 0, max(total-1, 0), 0) if total > 0 else 0
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = cap.read()
+        if ret and frame_idx < len(frames_list):
+            data = frames_list[frame_idx]
+            persons = data.get("persons", [])
+            if persons:
+                p = persons[0]
+                lbl = translate_label(extract_label_from_person(p))
+                conf = p.get("conf", 1.0)
+                cv2.putText(frame, f"{lbl} {conf}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            st.image(frame, channels="RGB", use_column_width=True)
+        cap.release()
