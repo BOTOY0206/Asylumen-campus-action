@@ -7,12 +7,20 @@ import numpy as np
 
 app = Flask(__name__)
 
-# 模型加载（✅ 路径正确，同文件夹姿态模型）
+# 模型加载
 MODEL_PATH = "yolov8n-pose.pt"
 model = YOLO(MODEL_PATH)
 PERSON_CLASS = 0
 
-# 行为标签 新增全部11类
+# ====================== 异常优先级排序！前端图表直接按这个顺序展示 ======================
+# 越靠前越危险，统计图优先显示，不会被stand/normal挤下去
+ABNORMAL_PRIORITY = [
+    "fighting", "lie", "climbing", "hit", "slap",
+    "running", "kick", "call", "smoke", "point"
+]
+# 完全正常行为：不计入异常帧
+NORMAL_ACTION = ["stand", "touch", "normal"]
+
 LABEL_MAP = {
     0: "normal",
     1: "fighting",
@@ -30,15 +38,85 @@ LABEL_MAP = {
     13: "touch"
 }
 
+slap_frame_history = {}
 
-# ==============================
-# 双兼容接口：支持文件上传 / 路径传参
-# ==============================
+# ====================== 和摄像头脚本1:1完全同步行为判断 ======================
+def get_video_action_type(keypoints, person_box, frame_id):
+    x1, y1, x2, y2 = person_box
+    body_h = y2 - y1
+    body_w = x2 - x1
+    body_ratio = body_h / body_w
+
+    nose = keypoints[0]
+    left_shoulder = keypoints[5]
+    right_shoulder = keypoints[6]
+    left_elbow = keypoints[7]
+    right_elbow = keypoints[8]
+    left_wrist = keypoints[9]
+    right_wrist = keypoints[10]
+    left_hip = keypoints[11]
+    right_hip = keypoints[12]
+    left_knee = keypoints[13]
+    right_knee = keypoints[14]
+    left_ankle = keypoints[15]
+    right_ankle = keypoints[16]
+
+    hip_avg_y = (left_hip[1] + right_hip[1]) / 2
+    knee_diff = abs(left_knee[1] - right_knee[1])
+
+    # 高危优先判断
+    if left_wrist[1] < nose[1] - body_h*0.05 and right_wrist[1] < nose[1] - body_h*0.05:
+        return "climbing"
+    if abs(left_wrist[1] - nose[1]) < body_h*0.25 or abs(right_wrist[1] - nose[1]) < body_h*0.25:
+        return "call"
+    if abs(left_wrist[1] - (nose[1]+body_h*0.1)) < body_h*0.2 or abs(right_wrist[1] - (nose[1]+body_h*0.1)) < body_h*0.2:
+        return "smoke"
+
+    global slap_frame_history
+    if frame_id not in slap_frame_history:
+        slap_frame_history[frame_id] = [left_wrist, right_wrist]
+    slap_flag = False
+    if (frame_id - 1) in slap_frame_history:
+        old_lw, old_rw = slap_frame_history[frame_id - 1]
+        speed = max(abs(left_wrist[0] - old_lw[0]), abs(right_wrist[0] - old_rw[0]))
+        if speed > body_h * 0.12 and abs(left_wrist[1] - nose[1]) < body_h*0.3:
+            slap_flag = True
+    if len(slap_frame_history) > 10:
+        keys = sorted(slap_frame_history.keys())
+        for k in keys[:-10]:
+            del slap_frame_history[k]
+    if slap_flag:
+        return "slap"
+
+    if left_wrist[0] < x1 - body_w*0.08 or right_wrist[0] > x2 + body_w*0.08:
+        return "point"
+    if body_ratio < 1.15 and abs(nose[1] - left_ankle[1]) < body_h * 0.35:
+        return "lie"
+    if knee_diff < body_h * 0.1:
+        return "stand"
+    if left_knee[1] > hip_avg_y or right_knee[1] > hip_avg_y:
+        return "squat"
+    if knee_diff > body_h * 0.18:
+        return "kick"
+
+    # 奔跑：必须双腿大幅错开，坐着永远不触发
+    left_arm_bend = abs(left_wrist[1]-left_elbow[1]) < body_h*0.18
+    right_arm_bend = abs(right_wrist[1]-right_elbow[1]) < body_h*0.18
+    if left_arm_bend and right_arm_bend and knee_diff > body_h * 0.15:
+        return "running"
+
+    if nose[0] < x1+body_w*0.1 or nose[0] > x2-body_w*0.1:
+        return "hit"
+    if (x1<left_wrist[0]<x2) or (x1<right_wrist[0]<x2):
+        return "touch"
+
+    return "normal"
+
+
 @app.route("/infer_behavior", methods=["POST"])
 def infer_behavior():
     video_path = None
 
-    # 1. 优先处理文件上传（前端正确方式）
     if "video" in request.files:
         file = request.files["video"]
         if file.filename != "":
@@ -47,16 +125,14 @@ def infer_behavior():
             temp.close()
             video_path = temp.name
 
-    # 2. 兜底：处理路径传参
     if not video_path:
         try:
             req_data = request.get_json()
             if req_data and "video_path" in req_data:
-                video_path = "C:/Users/33955/Desktop/Asylum-campus-action/data/sample_videos/phone_corner_1-1.mp4"
+                video_path = req_data["video_path"]
         except:
             pass
 
-    # 3. 校验视频
     if not video_path or not os.path.exists(video_path):
         return jsonify({
             "code": 404,
@@ -64,22 +140,17 @@ def infer_behavior():
             "data": None
         }), 404
 
-    # --------------------------
-    # 4. 推理 统计字典同步新增所有行为
-    # --------------------------
     cap = cv2.VideoCapture(video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
 
     abnormal_frames = 0
-    action_stats = {
-        "running": 0, "fighting": 0, "lie": 0, "climbing": 0,
-        "stand":0, "squat":0, "hit":0, "kick":0, "slap":0,
-        "point":0, "call":0, "smoke":0, "touch":0, "normal":0
-    }
+    action_stats = {k:0 for k in ABNORMAL_PRIORITY + NORMAL_ACTION}
     time_series = []
     frames = []
     frame_idx = 0
+    global slap_frame_history
+    slap_frame_history.clear()
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -96,51 +167,24 @@ def infer_behavior():
             conf = round(float(b.conf[0]), 2)
             label = "normal"
 
-            # ======================
-            # 防护：关键点为空不崩溃
-            # ======================
-            if results[0].keypoints is None:
-                current_persons.append({
-                    "bbox": [x1, y1, x2, y2],
-                    "label": label,
-                    "conf": conf,
-                    "fallback": False
-                })
+            if results[0].keypoints is None or len(results[0].keypoints) == 0:
+                current_persons.append({"bbox": [x1, y1, x2, y2], "label": label, "conf": conf})
                 continue
 
             keypoints = results[0].keypoints[idx].xy.cpu().numpy()[0]
             if np.all(keypoints == 0):
-                current_persons.append({
-                    "bbox": [x1, y1, x2, y2],
-                    "label": label,
-                    "conf": conf,
-                    "fallback": False
-                })
+                current_persons.append({"bbox": [x1, y1, x2, y2], "label": label, "conf": conf})
                 continue
 
-            # YOLO姿态17关键点
-            nose = keypoints[0]
-            shoulder_l = keypoints[5]
-            shoulder_r = keypoints[6]
-            hand_l = keypoints[9]
-            hand_r = keypoints[10]
-            hip = keypoints[11]
-            knee_l = keypoints[13]
-            knee_r = keypoints[14]
-            ankle_l = keypoints[15]
-            ankle_r = keypoints[16]
-
-            # ==============================================
-            # 🔥 核心：彻底删除 俩人=打斗
-            # 只有多人紧贴重叠纠缠 → 才是fighting打斗
-            # ==============================================
+            # 多人打斗最高优先级
             fight_detected = False
             if person_num >= 2:
                 cx = (x1 + x2) / 2
                 cy = (y1 + y2) / 2
                 for other_b in results[0].boxes:
-                    if other_b == b: continue
-                    ox1, oy1, ox2, oy2 = other_b.xyxy[0]
+                    if np.array_equal(other_b.xyxy[0].cpu().numpy(), b.xyxy[0].cpu().numpy()):
+                        continue
+                    ox1, oy1, ox2, oy2 = other_b.xyxy[0].cpu().numpy()
                     ocx = (ox1+ox2)/2
                     ocy = (oy1+oy2)/2
                     dist = np.hypot(cx-ocx, cy-ocy)
@@ -148,73 +192,33 @@ def infer_behavior():
                         fight_detected = True
                         break
 
-            if abs(nose[1] - ankle_l[1]) < 80:
-                label = "lie"
-            # 下蹲 squat
-            elif knee_l[1] > hip[1] + 60 or knee_r[1] > hip[1] + 60:
-                label = "squat"
-            # 站立 stand
-            elif hip[1] - knee_l[1] > 70 and hip[1] - knee_r[1] > 70:
-                label = "stand"
-            # 踢腿 kick
-            elif abs(knee_l[1] - knee_r[1]) > 90:
-                label = "kick"
-            # 手臂前伸打击 hit
-            elif hand_l[0] < x1-40 or hand_r[0] > x2+40:
-                label = "hit"
-            # 抬手扇耳光 slap
-            elif abs(hand_l[1]-nose[1])<50 or abs(hand_r[1]-nose[1])<50:
-                label = "slap"
-            # 手指指向 point
-            elif hand_l[0]<x1-60 or hand_r[0]>x2+60:
-                label = "point"
-            # 手贴耳朵打电话 call
-            elif abs(hand_l[1]-nose[1])<60 or abs(hand_r[1]-nose[1])<60:
-                label = "call"
-            # 手靠近嘴抽烟 smoke
-            elif abs(hand_l[1]-nose[1]+25)<45 or abs(hand_r[1]-nose[1]+25)<45:
-                label = "smoke"
-            # 手贴身触摸 touch
-            elif abs(hand_l[0]-x1)<50 or abs(hand_r[0]-x2)<50:
-                label = "touch"
-            # 攀爬 手臂高举
-            elif shoulder_l[1] < hip[1]-110 or shoulder_r[1] < hip[1]-110:
-                label = "climbing"
-            # 奔跑 双腿交错
-            elif abs(knee_l[1]-knee_r[1])>55:
-                label = "running"
-            # 其余全部正常
+            if fight_detected:
+                label = "fighting"
             else:
-                label = "normal"
+                label = get_video_action_type(keypoints, [x1,y1,x2,y2], frame_idx)
 
-            current_persons.append({
-                "bbox": [x1, y1, x2, y2],
-                "label": label,
-                "conf": conf,
-                "fallback": False
-            })
+            current_persons.append({"bbox": [x1, y1, x2, y2], "label": label, "conf": conf})
 
-        # 帧数据存入
-        frames.append({
-            "time": round(frame_idx / fps, 2),
-            "persons": current_persons
-        })
+        frames.append({"time": round(frame_idx/fps,2), "persons": current_persons})
 
-        # 全行为统计
+        # 统计：异常行为优先累加
         for p in current_persons:
             action_stats[p["label"]] += 1
 
-        # 异常判断
-        if any(p["label"] not in ["normal","stand"] for p in current_persons):
+        # ✅ 关键：只有高危异常才算异常帧！stand/normal/touch 不算异常！
+        if any(p["label"] in ABNORMAL_PRIORITY for p in current_persons):
             abnormal_frames += 1
 
         frame_idx += 1
 
     cap.release()
-    if "temp" in locals() and os.path.exists(video_path):
+    if video_path and os.path.exists(video_path):
         os.unlink(video_path)
 
     abnormal_ratio = round((abnormal_frames / total_frames) * 100, 1) if total_frames else 0
+
+    # 接口返回：按异常危险度排序！前端柱状图自动优先显示异常
+    sorted_action_stats = {k:action_stats[k] for k in ABNORMAL_PRIORITY + NORMAL_ACTION}
 
     return jsonify({
         "code": 200,
@@ -223,7 +227,7 @@ def infer_behavior():
             "total_frames": total_frames,
             "abnormal_frames": abnormal_frames,
             "abnormal_ratio": abnormal_ratio,
-            "action_stats": action_stats,
+            "action_stats": sorted_action_stats,
             "time_series": time_series,
             "frames": frames,
             "result_video_url": ""
